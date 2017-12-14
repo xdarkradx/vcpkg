@@ -32,7 +32,7 @@ set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src)
 vcpkg_download_distfile(ARCHIVE
     URLS "https://storage.googleapis.com/chrome-infra/depot_tools.zip"
     FILENAME "depot_tools.zip"
-    SHA512 f63fd1f8dc97eb6dfca2aa30fd869c745dd69410575577fae369501a213b791da11aada38ef726a21f4d51a3bbb7a80584261aca08295fd2b92795fa95f3e92c
+    SHA512 bf86dd0990575977e0b7fc6a5e2e6732883c9d05afcac2a86dbf197e1f532ef6fda4f5f69654c221c0b0edf8f9a714062d4d628426da6609e9ecc647c44f6bda
 )
 vcpkg_extract_source_archive(${ARCHIVE})
 
