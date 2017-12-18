@@ -91,15 +91,15 @@ message(STATUS "Setting configuration for shared library build")
 
 # Make DLLS
 file(APPEND ${SOURCE_PATH}/v8/v8/out.gn/${BUILDTYPE}/args.gn "is_component_build = true\n" )
-# You might need to change this if you have a different VS version installed
+# You might need to change this if you have a different VS version installed.
 file(APPEND ${SOURCE_PATH}/v8/v8/out.gn/${BUILDTYPE}/args.gn "visual_studio_version = \"2017\"" )
-# Embed snapshot data into the 
+# Embed snapshot data into the binaries.
 file(APPEND ${SOURCE_PATH}/v8/v8/out.gn/${BUILDTYPE}/args.gn "v8_use_external_startup_data = false" ) 
 
 message(STATUS "Building ${BUILDTYPE} through ninja")
 
 vcpkg_execute_required_process(
-    COMMAND ninja -C out.gn/${BUILDTYPE}/ v8_shell -v
+    COMMAND ninja -C out.gn/${BUILDTYPE}/ v8.dll v8_shell -v
     WORKING_DIRECTORY ${SOURCE_PATH}/v8/v8
     LOGNAME ${TARGET_TRIPLET}-dbg
 )
@@ -122,14 +122,13 @@ vcpkg_execute_required_process(
 
 message(STATUS "Setting configuration for shared library build")
 
-#file(APPEND ${SOURCE_PATH}/v8/v8/out.gn/x64.release/args.gn "is_clang = false\n" )
 file(APPEND ${SOURCE_PATH}/v8/v8/out.gn/${BUILDTYPE}/args.gn "is_component_build = true\n" )
 file(APPEND ${SOURCE_PATH}/v8/v8/out.gn/${BUILDTYPE}/args.gn "visual_studio_version = \"2017\"" )
 file(APPEND ${SOURCE_PATH}/v8/v8/out.gn/${BUILDTYPE}/args.gn "v8_use_external_startup_data = false" ) 
 message(STATUS "Building ${BUILDTYPE} through ninja")
 
 vcpkg_execute_required_process(
-    COMMAND ninja -C out.gn/${BUILDTYPE}/ v8_shell -v
+    COMMAND ninja -C out.gn/${BUILDTYPE}/ v8.dll v8_shell -v
     WORKING_DIRECTORY ${SOURCE_PATH}/v8/v8
     LOGNAME ${TARGET_TRIPLET}-rel
 )
