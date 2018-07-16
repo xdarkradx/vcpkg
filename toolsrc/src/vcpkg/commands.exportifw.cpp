@@ -69,8 +69,7 @@ namespace vcpkg::Export::IFW
     {
         std::error_code ec;
 
-        const BinaryParagraph& binary_paragraph =
-            action.any_paragraph.binary_control_file.value_or_exit(VCPKG_LINE_INFO).core_paragraph;
+        const BinaryParagraph& binary_paragraph = action.core_paragraph().value_or_exit(VCPKG_LINE_INFO);
 
         // Prepare meta dir
         const fs::path package_xml_file_path =
@@ -139,14 +138,13 @@ namespace vcpkg::Export::IFW
 )###",
                               create_release_date()));
 
-        for (auto package = unique_packages.begin(); package != unique_packages.end(); ++package)
+        for (const auto& unique_package : unique_packages)
         {
-            const ExportPlanAction& action = *(package->second);
-            const BinaryParagraph& binary_paragraph =
-                action.any_paragraph.binary_control_file.value_or_exit(VCPKG_LINE_INFO).core_paragraph;
+            const ExportPlanAction& action = *(unique_package.second);
+            const BinaryParagraph& binary_paragraph = action.core_paragraph().value_or_exit(VCPKG_LINE_INFO);
 
             package_xml_file_path =
-                raw_exported_dir_path / Strings::format("packages.%s", package->first) / "meta" / "package.xml";
+                raw_exported_dir_path / Strings::format("packages.%s", unique_package.first) / "meta" / "package.xml";
             package_xml_dir_path = package_xml_file_path.parent_path();
             fs.create_directories(package_xml_dir_path, ec);
             Checks::check_exit(VCPKG_LINE_INFO,
@@ -293,7 +291,7 @@ namespace vcpkg::Export::IFW
         std::error_code ec;
         Files::Filesystem& fs = paths.get_filesystem();
 
-        const fs::path& installerbase_exe = paths.get_ifw_installerbase_exe();
+        const fs::path& installerbase_exe = paths.get_tool_exe(Tools::IFW_INSTALLER_BASE);
         fs::path tempmaintenancetool = ifw_packages_dir_path / "maintenance" / "data" / "tempmaintenancetool.exe";
         fs.create_directories(tempmaintenancetool.parent_path(), ec);
         Checks::check_exit(VCPKG_LINE_INFO,
@@ -337,7 +335,7 @@ namespace vcpkg::Export::IFW
 
     void do_repository(const std::string& export_id, const Options& ifw_options, const VcpkgPaths& paths)
     {
-        const fs::path& repogen_exe = paths.get_ifw_repogen_exe();
+        const fs::path& repogen_exe = paths.get_tool_exe(Tools::IFW_REPOGEN);
         const fs::path packages_dir = get_packages_dir_path(export_id, ifw_options, paths);
         const fs::path repository_dir = get_repository_dir_path(export_id, ifw_options, paths);
 
@@ -363,7 +361,7 @@ namespace vcpkg::Export::IFW
 
     void do_installer(const std::string& export_id, const Options& ifw_options, const VcpkgPaths& paths)
     {
-        const fs::path& binarycreator_exe = paths.get_ifw_binarycreator_exe();
+        const fs::path& binarycreator_exe = paths.get_tool_exe(Tools::IFW_BINARYCREATOR);
         const fs::path config_file = get_config_file_path(export_id, ifw_options, paths);
         const fs::path packages_dir = get_packages_dir_path(export_id, ifw_options, paths);
         const fs::path repository_dir = get_repository_dir_path(export_id, ifw_options, paths);
@@ -436,8 +434,7 @@ namespace vcpkg::Export::IFW
             const std::string display_name = action.spec.to_string();
             System::println("Exporting package %s... ", display_name);
 
-            const BinaryParagraph& binary_paragraph =
-                action.any_paragraph.binary_control_file.value_or_exit(VCPKG_LINE_INFO).core_paragraph;
+            const BinaryParagraph& binary_paragraph = action.core_paragraph().value_or_exit(VCPKG_LINE_INFO);
 
             unique_packages[action.spec.name()] = &action;
             unique_triplets.insert(action.spec.triplet().canonical_name());

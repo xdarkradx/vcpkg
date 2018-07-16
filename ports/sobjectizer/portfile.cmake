@@ -1,12 +1,12 @@
 include(vcpkg_common_functions)
 
-set(VERSION 5.5.20)
+set(VERSION 5.5.22.1)
 set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/so-${VERSION}/dev)
 
 vcpkg_download_distfile(ARCHIVE
     URLS "https://sourceforge.net/projects/sobjectizer/files/sobjectizer/SObjectizer%20Core%20v.5.5/so-${VERSION}.zip"
     FILENAME "so-${VERSION}.zip"
-    SHA512 ec62f358b363ee35c9baba4871612c906d9b57624a8a86e57c59cfe8bfd209554f70fee1d3caf815a475b6833238f8d2ec9ebc210acc978423b31b3ebf27b868
+    SHA512 400995d23fc7e53360e75ed6c001d678fabf7965bc90288679409068aeea026af99b194935d09dcd27410da8cb05ede08efd0b1fc5e3baa0402ea1d12ea331cd
 )
 vcpkg_extract_source_archive(${ARCHIVE})
 

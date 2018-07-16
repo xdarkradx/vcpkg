@@ -47,11 +47,10 @@ function(vcpkg_apply_patches)
             RESULT_VARIABLE error_code
         )
 
-        if(error_code AND NOT ${_ap_QUIET})
+        if(error_code AND NOT _ap_QUIET)
             message(STATUS "Applying patch failed. This is expected if this patch was previously applied.")
         endif()
 
-        message(STATUS "Applying patch ${PATCH} done")
         math(EXPR PATCHNUM "${PATCHNUM}+1")
     endforeach()
 endfunction()

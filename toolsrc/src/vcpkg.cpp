@@ -4,7 +4,7 @@
 
 #pragma warning(push)
 #pragma warning(disable : 4768)
-#include <Shlobj.h>
+#include <ShlObj.h>
 #pragma warning(pop)
 #else
 #include <unistd.h>
@@ -70,7 +70,7 @@ static void inner(const VcpkgCmdArguments& args)
     fs::path vcpkg_root_dir;
     if (args.vcpkg_root_dir != nullptr)
     {
-        vcpkg_root_dir = fs::stdfs::absolute(Strings::to_utf16(*args.vcpkg_root_dir));
+        vcpkg_root_dir = fs::stdfs::absolute(fs::u8path(*args.vcpkg_root_dir));
     }
     else
     {
@@ -94,13 +94,17 @@ static void inner(const VcpkgCmdArguments& args)
 
     Checks::check_exit(VCPKG_LINE_INFO, !vcpkg_root_dir.empty(), "Error: Could not detect vcpkg-root.");
 
-    const Expected<VcpkgPaths> expected_paths = VcpkgPaths::create(vcpkg_root_dir);
+    Debug::println("Using vcpkg-root: %s", vcpkg_root_dir.u8string());
+
+    auto default_vs_path = System::get_environment_variable("VCPKG_DEFAULT_VS_PATH").value_or("");
+
+    const Expected<VcpkgPaths> expected_paths = VcpkgPaths::create(vcpkg_root_dir, default_vs_path);
     Checks::check_exit(VCPKG_LINE_INFO,
                        !expected_paths.error(),
                        "Error: Invalid vcpkg root directory %s: %s",
                        vcpkg_root_dir.string(),
                        expected_paths.error().message());
-    const VcpkgPaths paths = expected_paths.value_or_exit(VCPKG_LINE_INFO);
+    const VcpkgPaths& paths = expected_paths.value_or_exit(VCPKG_LINE_INFO);
 
 #if defined(_WIN32)
     const int exit_code = _wchdir(paths.root.c_str());
@@ -155,7 +159,15 @@ static void inner(const VcpkgCmdArguments& args)
         }
         else
         {
+#if defined(_WIN32)
             default_triplet = Triplet::X86_WINDOWS;
+#elif defined(__APPLE__)
+            default_triplet = Triplet::from_canonical_name("x64-osx");
+#elif defined(__FreeBSD__)
+            default_triplet = Triplet::from_canonical_name("x64-freebsd");
+#else
+            default_triplet = Triplet::from_canonical_name("x64-linux");
+#endif
         }
     }
 
@@ -171,7 +183,6 @@ static void inner(const VcpkgCmdArguments& args)
 
 static void load_config()
 {
-#if defined(_WIN32)
     auto& fs = Files::get_real_filesystem();
 
     auto config = UserConfig::try_read_data(fs);
@@ -185,16 +196,20 @@ static void load_config()
         write_config = true;
     }
 
+#if defined(_WIN32)
     if (config.user_mac.empty())
     {
         config.user_mac = Metrics::get_MAC_user();
         write_config = true;
     }
+#endif
 
     {
         auto locked_metrics = Metrics::g_metrics.lock();
         locked_metrics->set_user_information(config.user_id, config.user_time);
+#if defined(_WIN32)
         locked_metrics->track_property("user_mac", config.user_mac);
+#endif
     }
 
     if (config.last_completed_survey.empty())
@@ -208,13 +223,13 @@ static void load_config()
     {
         config.try_write_data(fs);
     }
-#endif
 }
 
+#if defined(_WIN32)
 static std::string trim_path_from_command_line(const std::string& full_command_line)
 {
     Checks::check_exit(
-        VCPKG_LINE_INFO, full_command_line.size() > 0, "Internal failure - cannot have empty command line");
+        VCPKG_LINE_INFO, !full_command_line.empty(), "Internal failure - cannot have empty command line");
 
     if (full_command_line[0] == '"')
     {
@@ -231,6 +246,7 @@ static std::string trim_path_from_command_line(const std::string& full_command_l
         ++it;
     return std::string(it, full_command_line.cend());
 }
+#endif
 
 #if defined(_WIN32)
 int wmain(const int argc, const wchar_t* const* const argv)
@@ -261,7 +277,17 @@ int main(const int argc, const char* const* const argv)
     }
     load_config();
 
+    const auto vcpkg_feature_flags_env = System::get_environment_variable("VCPKG_FEATURE_FLAGS");
+    if (const auto v = vcpkg_feature_flags_env.get())
+    {
+        auto flags = Strings::split(*v, ",");
+        if (std::find(flags.begin(), flags.end(), "binarycaching") != flags.end()) GlobalState::g_binary_caching = true;
+    }
+
     const VcpkgCmdArguments args = VcpkgCmdArguments::create_from_command_line(argc, argv);
+
+    if (const auto p = args.featurepackages.get()) GlobalState::feature_packages = *p;
+    if (const auto p = args.binarycaching.get()) GlobalState::g_binary_caching = *p;
 
     if (const auto p = args.printmetrics.get()) Metrics::g_metrics.lock()->set_print_metrics(*p);
     if (const auto p = args.sendmetrics.get()) Metrics::g_metrics.lock()->set_send_metrics(*p);

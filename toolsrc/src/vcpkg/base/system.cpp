@@ -5,7 +5,15 @@
 #include <vcpkg/globalstate.h>
 #include <vcpkg/metrics.h>
 
-#include <time.h>
+#include <ctime>
+
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+
+#if defined(__FreeBSD__)
+#include <sys/sysctl.h>
+#endif
 
 #pragma comment(lib, "Advapi32")
 
@@ -15,7 +23,7 @@ namespace vcpkg::System
     {
         using std::chrono::system_clock;
         std::time_t now_time = system_clock::to_time_t(system_clock::now());
-        tm parts;
+        tm parts{};
 #if defined(_WIN32)
         localtime_s(&parts, &now_time);
 #else
@@ -31,7 +39,24 @@ namespace vcpkg::System
         const int bytes = GetModuleFileNameW(nullptr, buf, _MAX_PATH);
         if (bytes == 0) std::abort();
         return fs::path(buf, buf + bytes);
-#else
+#elif defined(__APPLE__)
+        static constexpr const uint32_t buff_size = 1024 * 32;
+        uint32_t size = buff_size;
+        char buf[buff_size] = {};
+        bool result = _NSGetExecutablePath(buf, &size);
+        Checks::check_exit(VCPKG_LINE_INFO, result != -1, "Could not determine current executable path.");
+        std::unique_ptr<char> canonicalPath(realpath(buf, NULL));
+        Checks::check_exit(VCPKG_LINE_INFO, result != -1, "Could not determine current executable path.");
+        return fs::path(std::string(canonicalPath.get()));
+#elif defined(__FreeBSD__)
+        int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1};
+        char exePath[2048];
+        size_t len = sizeof(exePath);
+        auto rcode = sysctl(mib, 4, exePath, &len, NULL, 0);
+        Checks::check_exit(VCPKG_LINE_INFO, rcode == 0, "Could not determine current executable path.");
+        Checks::check_exit(VCPKG_LINE_INFO, len > 0, "Could not determine current executable path.");
+        return fs::path(exePath, exePath + len - 1);
+#else /* LINUX */
         std::array<char, 1024 * 4> buf;
         auto written = readlink("/proc/self/exe", buf.data(), buf.size());
         Checks::check_exit(VCPKG_LINE_INFO, written != -1, "Could not determine current executable path.");
@@ -104,37 +129,15 @@ namespace vcpkg::System
             R"("%s" %s -P "%s")", cmake_exe.u8string(), cmd_cmake_pass_variables, cmake_script.generic_u8string());
     }
 
-    PowershellParameter::PowershellParameter(const CStringView varname, const char* varvalue)
-        : s(Strings::format(R"(-%s '%s')", varname, varvalue))
-    {
-    }
-
-    PowershellParameter::PowershellParameter(const CStringView varname, const std::string& varvalue)
-        : PowershellParameter(varname, varvalue.c_str())
-    {
-    }
-
-    PowershellParameter::PowershellParameter(const CStringView varname, const fs::path& path)
-        : PowershellParameter(varname, path.generic_u8string())
-    {
-    }
-
-    static std::string make_powershell_cmd(const fs::path& script_path,
-                                           const std::vector<PowershellParameter>& parameters)
-    {
-        const std::string args = Strings::join(" ", parameters, [](auto&& v) { return v.s; });
-
-        // TODO: switch out ExecutionPolicy Bypass with "Remove Mark Of The Web" code and restore RemoteSigned
-        return Strings::format(
-            R"(powershell -NoProfile -ExecutionPolicy Bypass -Command "& {& '%s' %s}")", script_path.u8string(), args);
-    }
-
-    int cmd_execute_clean(const CStringView cmd_line)
-    {
 #if defined(_WIN32)
+    static void windows_create_clean_process(const CStringView cmd_line,
+                                             const std::unordered_map<std::string, std::string>& extra_env,
+                                             PROCESS_INFORMATION& process_info,
+                                             DWORD dwCreationFlags)
+    {
         static const std::string SYSTEM_ROOT = get_environment_variable("SystemRoot").value_or_exit(VCPKG_LINE_INFO);
         static const std::string SYSTEM_32 = SYSTEM_ROOT + R"(\system32)";
-        static const std::string NEW_PATH = Strings::format(
+        std::string new_path = Strings::format(
             R"(Path=%s;%s;%s\Wbem;%s\WindowsPowerShell\v1.0\)", SYSTEM_32, SYSTEM_ROOT, SYSTEM_32, SYSTEM_32);
 
         std::vector<std::wstring> env_wstrings = {
@@ -175,8 +178,8 @@ namespace vcpkg::System
             L"USERPROFILE",
             L"windir",
             // Enables proxy information to be passed to Curl, the underlying download library in cmake.exe
-            L"HTTP_PROXY",
-            L"HTTPS_PROXY",
+            L"http_proxy",
+            L"https_proxy",
             // Enables find_package(CUDA) in CMake
             L"CUDA_PATH",
             // Environmental variable generated automatically by CUDA after installation
@@ -190,7 +193,7 @@ namespace vcpkg::System
 
         for (auto&& env_wstring : env_wstrings)
         {
-            const Optional<std::string> value = System::get_environment_variable(Strings::to_utf8(env_wstring));
+            const Optional<std::string> value = System::get_environment_variable(Strings::to_utf8(env_wstring.c_str()));
             const auto v = value.get();
             if (!v || v->empty()) continue;
 
@@ -200,17 +203,25 @@ namespace vcpkg::System
             env_cstr.push_back(L'\0');
         }
 
-        env_cstr.append(Strings::to_utf16(NEW_PATH));
+        if (extra_env.find("PATH") != extra_env.end())
+            new_path += Strings::format(";%s", extra_env.find("PATH")->second);
+        env_cstr.append(Strings::to_utf16(new_path));
         env_cstr.push_back(L'\0');
         env_cstr.append(L"VSLANG=1033");
         env_cstr.push_back(L'\0');
 
+        for (const auto& item : extra_env)
+        {
+            if (item.first == "PATH") continue;
+            env_cstr.append(Strings::to_utf16(item.first));
+            env_cstr.push_back(L'=');
+            env_cstr.append(Strings::to_utf16(item.second));
+            env_cstr.push_back(L'\0');
+        }
+
         STARTUPINFOW startup_info;
         memset(&startup_info, 0, sizeof(STARTUPINFOW));
         startup_info.cb = sizeof(STARTUPINFOW);
-
-        PROCESS_INFORMATION process_info;
-        memset(&process_info, 0, sizeof(PROCESS_INFORMATION));
 
         // Basically we are wrapping it in quotes
         const std::string actual_cmd_line = Strings::format(R"###(cmd.exe /c "%s")###", cmd_line);
@@ -220,13 +231,42 @@ namespace vcpkg::System
                                                 nullptr,
                                                 nullptr,
                                                 FALSE,
-                                                BELOW_NORMAL_PRIORITY_CLASS | CREATE_UNICODE_ENVIRONMENT,
+                                                IDLE_PRIORITY_CLASS | CREATE_UNICODE_ENVIRONMENT | dwCreationFlags,
                                                 env_cstr.data(),
                                                 nullptr,
                                                 &startup_info,
                                                 &process_info);
 
         Checks::check_exit(VCPKG_LINE_INFO, succeeded, "Process creation failed with error code: %lu", GetLastError());
+    }
+#endif
+
+#if defined(_WIN32)
+    void cmd_execute_no_wait(const CStringView cmd_line)
+    {
+        auto timer = Chrono::ElapsedTimer::create_started();
+
+        PROCESS_INFORMATION process_info;
+        memset(&process_info, 0, sizeof(PROCESS_INFORMATION));
+
+        windows_create_clean_process(cmd_line, {}, process_info, DETACHED_PROCESS);
+
+        CloseHandle(process_info.hThread);
+        CloseHandle(process_info.hProcess);
+
+        Debug::println("CreateProcessW() took %d us", static_cast<int>(timer.microseconds()));
+    }
+#endif
+
+    int cmd_execute_clean(const CStringView cmd_line, const std::unordered_map<std::string, std::string>& extra_env)
+    {
+        auto timer = Chrono::ElapsedTimer::create_started();
+#if defined(_WIN32)
+
+        PROCESS_INFORMATION process_info;
+        memset(&process_info, 0, sizeof(PROCESS_INFORMATION));
+
+        windows_create_clean_process(cmd_line, extra_env, process_info, NULL);
 
         CloseHandle(process_info.hThread);
 
@@ -236,11 +276,16 @@ namespace vcpkg::System
         DWORD exit_code = 0;
         GetExitCodeProcess(process_info.hProcess, &exit_code);
 
-        Debug::println("CreateProcessW() returned %lu", exit_code);
+        CloseHandle(process_info.hProcess);
+
+        Debug::println("CreateProcessW() returned %lu after %d us", exit_code, static_cast<int>(timer.microseconds()));
         return static_cast<int>(exit_code);
 #else
+        Debug::println("system(%s)", cmd_line.c_str());
         fflush(nullptr);
-        return system(cmd_line.c_str());
+        int rc = system(cmd_line.c_str());
+        Debug::println("system() returned %d after %d us", rc, static_cast<int>(timer.microseconds()));
+        return rc;
 #endif
     }
 
@@ -250,34 +295,25 @@ namespace vcpkg::System
         fflush(nullptr);
 
         // Basically we are wrapping it in quotes
-        const std::string& actual_cmd_line = Strings::format(R"###("%s")###", cmd_line);
 #if defined(_WIN32)
+        const std::string& actual_cmd_line = Strings::format(R"###("%s")###", cmd_line);
         Debug::println("_wsystem(%s)", actual_cmd_line);
         const int exit_code = _wsystem(Strings::to_utf16(actual_cmd_line).c_str());
         Debug::println("_wsystem() returned %d", exit_code);
 #else
-        Debug::println("_system(%s)", actual_cmd_line);
-        const int exit_code = system(actual_cmd_line.c_str());
+        Debug::println("_system(%s)", cmd_line);
+        const int exit_code = system(cmd_line.c_str());
         Debug::println("_system() returned %d", exit_code);
 #endif
         return exit_code;
-    }
-
-    // On Win7, output from powershell calls contain a byte order mark, so we strip it out if it is present
-    static void remove_byte_order_marks(std::wstring* s)
-    {
-        const wchar_t* a = s->c_str();
-        // This is the UTF-8 byte-order mark
-        while (s->size() >= 3 && a[0] == 0xEF && a[1] == 0xBB && a[2] == 0xBF)
-        {
-            s->erase(0, 3);
-        }
     }
 
     ExitCodeAndOutput cmd_execute_and_capture_output(const CStringView cmd_line)
     {
         // Flush stdout before launching external process
         fflush(stdout);
+
+        auto timer = Chrono::ElapsedTimer::create_started();
 
 #if defined(_WIN32)
         const auto actual_cmd_line = Strings::format(R"###("%s 2>&1")###", cmd_line);
@@ -288,7 +324,7 @@ namespace vcpkg::System
         const auto pipe = _wpopen(Strings::to_utf16(actual_cmd_line).c_str(), L"r");
         if (pipe == nullptr)
         {
-            return {1, Strings::to_utf8(output)};
+            return {1, Strings::to_utf8(output.c_str())};
         }
         while (fgetws(buf, 1024, pipe))
         {
@@ -296,13 +332,22 @@ namespace vcpkg::System
         }
         if (!feof(pipe))
         {
-            return {1, Strings::to_utf8(output)};
+            return {1, Strings::to_utf8(output.c_str())};
         }
 
         const auto ec = _pclose(pipe);
-        Debug::println("_pclose() returned %d", ec);
-        remove_byte_order_marks(&output);
-        return {ec, Strings::to_utf8(output)};
+
+        // On Win7, output from powershell calls contain a utf-8 byte order mark in the utf-16 stream, so we strip it
+        // out if it is present. 0xEF,0xBB,0xBF is the UTF-8 byte-order mark
+        const wchar_t* a = output.c_str();
+        while (output.size() >= 3 && a[0] == 0xEF && a[1] == 0xBB && a[2] == 0xBF)
+        {
+            output.erase(0, 3);
+        }
+
+        Debug::println("_pclose() returned %d after %8d us", ec, static_cast<int>(timer.microseconds()));
+
+        return {ec, Strings::to_utf8(output.c_str())};
 #else
         const auto actual_cmd_line = Strings::format(R"###(%s 2>&1)###", cmd_line);
 
@@ -324,74 +369,11 @@ namespace vcpkg::System
         }
 
         const auto ec = pclose(pipe);
-        Debug::println("pclose() returned %d", ec);
+
+        Debug::println("_pclose() returned %d after %8d us", ec, (int)timer.microseconds());
+
         return {ec, output};
 #endif
-    }
-
-    void powershell_execute(const std::string& title,
-                            const fs::path& script_path,
-                            const std::vector<PowershellParameter>& parameters)
-    {
-        const std::string cmd = make_powershell_cmd(script_path, parameters);
-        const int rc = System::cmd_execute(cmd);
-
-        if (rc)
-        {
-            System::println(Color::error,
-                            "%s\n"
-                            "Could not run:\n"
-                            "    '%s'",
-                            title,
-                            script_path.generic_string());
-
-            {
-                auto locked_metrics = Metrics::g_metrics.lock();
-                locked_metrics->track_property("error", "powershell script failed");
-                locked_metrics->track_property("title", title);
-            }
-
-            Checks::exit_with_code(VCPKG_LINE_INFO, rc);
-        }
-    }
-
-    std::string powershell_execute_and_capture_output(const std::string& title,
-                                                      const fs::path& script_path,
-                                                      const std::vector<PowershellParameter>& parameters)
-    {
-        const std::string cmd = make_powershell_cmd(script_path, parameters);
-        auto rc = System::cmd_execute_and_capture_output(cmd);
-
-        if (rc.exit_code)
-        {
-            System::println(Color::error,
-                            "%s\n"
-                            "Could not run:\n"
-                            "    '%s'\n"
-                            "Error message was:\n"
-                            "    %s",
-                            title,
-                            script_path.generic_string(),
-                            rc.output);
-
-            {
-                auto locked_metrics = Metrics::g_metrics.lock();
-                locked_metrics->track_property("error", "powershell script failed");
-                locked_metrics->track_property("title", title);
-            }
-
-            Checks::exit_with_code(VCPKG_LINE_INFO, rc.exit_code);
-        }
-
-        // Remove newline from all output.
-        // Powershell returns newlines when it hits the column count of the console.
-        // For example, this is 80 in cmd on Windows 7. If the expected output is longer than 80 lines, we get
-        // newlines in-between the data.
-        // To solve this, we design our interaction with powershell to not depend on newlines,
-        // and then strip all newlines here.
-        rc.output = Strings::replace_all(std::move(rc.output), "\n", "");
-
-        return rc.output;
     }
 
     void println() { putchar('\n'); }
@@ -440,7 +422,7 @@ namespace vcpkg::System
         const auto sz2 = GetEnvironmentVariableW(w_varname.c_str(), ret.data(), static_cast<DWORD>(ret.size()));
         Checks::check_exit(VCPKG_LINE_INFO, sz2 + 1 == sz);
         ret.pop_back();
-        return Strings::to_utf8(ret);
+        return Strings::to_utf8(ret.c_str());
 #else
         auto v = getenv(varname.c_str());
         if (!v) return nullopt;
@@ -481,7 +463,7 @@ namespace vcpkg::System
             return nullopt;
 
         ret.pop_back(); // remove extra trailing null byte
-        return Strings::to_utf8(ret);
+        return Strings::to_utf8(ret.c_str());
     }
 #else
     Optional<std::string> get_registry_string(void* base_hkey, const CStringView sub_key, const CStringView valuename)
@@ -490,32 +472,41 @@ namespace vcpkg::System
     }
 #endif
 
-    static const fs::path& get_program_files()
+    static const Optional<fs::path>& get_program_files()
     {
-        static const fs::path PATH = System::get_environment_variable("PROGRAMFILES").value_or_exit(VCPKG_LINE_INFO);
+        static const auto PATH = []() -> Optional<fs::path> {
+            auto value = System::get_environment_variable("PROGRAMFILES");
+            if (auto v = value.get())
+            {
+                return *v;
+            }
+
+            return nullopt;
+        }();
+
         return PATH;
     }
 
-    const fs::path& get_program_files_32_bit()
+    const Optional<fs::path>& get_program_files_32_bit()
     {
-        static const fs::path PATH = []() -> fs::path {
+        static const auto PATH = []() -> Optional<fs::path> {
             auto value = System::get_environment_variable("ProgramFiles(x86)");
             if (auto v = value.get())
             {
-                return std::move(*v);
+                return *v;
             }
             return get_program_files();
         }();
         return PATH;
     }
 
-    const fs::path& get_program_files_platform_bitness()
+    const Optional<fs::path>& get_program_files_platform_bitness()
     {
-        static const fs::path PATH = []() -> fs::path {
+        static const auto PATH = []() -> Optional<fs::path> {
             auto value = System::get_environment_variable("ProgramW6432");
             if (auto v = value.get())
             {
-                return std::move(*v);
+                return *v;
             }
             return get_program_files();
         }();

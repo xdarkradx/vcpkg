@@ -5,22 +5,22 @@ function findExistingImportModuleDirectives([Parameter(Mandatory=$true)][string]
 {
     if (!(Test-Path $path))
     {
-        return $false
+        return
     }
 
     $fileContents = Get-Content $path
-    return $fileContents -match 'Import-Module.+?(?=posh-vcpkg)'
+    $fileContents -match 'Import-Module.+?(?=posh-vcpkg)'
+    return
 }
 
-$scriptsDir = split-path -parent $MyInvocation.MyCommand.Definition
-. "$scriptsDir\VcpkgPowershellUtils.ps1"
+$scriptsDir = split-path -parent $script:MyInvocation.MyCommand.Definition
 
 $profileEntry = "Import-Module '$scriptsDir\posh-vcpkg'"
 $profilePath = $PROFILE # Implicit powershell variable
-if (!(Test-Path $profilePath))
+$profileDir = Split-Path $profilePath -Parent
+if (!(Test-Path $profileDir))
 {
-    $profileDir = Split-Path $profilePath -Parent
-    vcpkgCreateDirectoryIfNotExists $profileDir
+    New-Item -ItemType Directory -Path $profileDir | Out-Null
 }
 
 Write-Host "`nAdding the following line to ${profilePath}:"
@@ -37,6 +37,7 @@ if ($existingImports.Count -gt 0)
     return
 }
 
+# Modifying the profile will invalidate any signatures.
 # Posh-git does the following check, so we should too.
 # https://github.com/dahlbyk/posh-git/blob/master/src/Utils.ps1
 # If the profile script exists and is signed, then we should not modify it

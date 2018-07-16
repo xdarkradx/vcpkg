@@ -29,8 +29,10 @@ namespace vcpkg
     /// </summary>
     struct StatusParagraph
     {
-        StatusParagraph();
+        StatusParagraph() noexcept;
         explicit StatusParagraph(std::unordered_map<std::string, std::string>&& fields);
+
+        bool is_installed() const { return want == Want::INSTALL && state == InstallState::INSTALLED; }
 
         BinaryParagraph package;
         Want want;
@@ -42,4 +44,20 @@ namespace vcpkg
     std::string to_string(InstallState f);
 
     std::string to_string(Want f);
+
+    struct InstalledPackageView
+    {
+        InstalledPackageView() noexcept : core(nullptr) {}
+
+        InstalledPackageView(const StatusParagraph* c, std::vector<const StatusParagraph*>&& fs)
+            : core(c), features(std::move(fs))
+        {
+        }
+
+        const PackageSpec& spec() const { return core->package.spec; }
+        std::vector<PackageSpec> dependencies() const;
+
+        const StatusParagraph* core;
+        std::vector<const StatusParagraph*> features;
+    };
 }

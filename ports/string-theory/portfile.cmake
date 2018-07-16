@@ -3,15 +3,11 @@ include(vcpkg_common_functions)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO zrax/string_theory
-    REF 1.6
-    SHA512 5bc99b6dfc2ab43d2812ee47dfbbeeb68106da39b2349799ab924f009270166ebb5508f87a37e634fbfa5495dd263697a582404650eedc5393722761c5ce2028
+    REF 2.1
+    SHA512 c20f481ba1bd3f1add2d7ee085db7dfa387e3675df5551e64bf294a96f4902551635e83faf2580fb0d6a55fd5ed1c906510d6cb39580a07234e5638e6c747fe0
     HEAD_REF master
 )
-vcpkg_apply_patches(
-    SOURCE_PATH  ${SOURCE_PATH}
-    PATCHES 
-		${CMAKE_CURRENT_LIST_DIR}/disableTests.patch	
-)
+
 if(VCPKG_LIBRARY_LINKAGE STREQUAL static)
     set(ST_BUILD_STATIC ON)
 else()

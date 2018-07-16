@@ -20,8 +20,8 @@ include(vcpkg_common_functions)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO google/draco
-    REF 0.10.0
-    SHA512 4e1c5d0799b7c005167847886f6cb9ae450beb4fe6dc58971955abe0cdf43317253a2e19a185cf1210169a6b2d1922c0d684e50d39145894b01e775717e6d173
+    REF 1.3.3
+    SHA512 80ed5a623046822f5bb26b2454c8ee8cc93ffe9eb3012e8461cefdfc577b26d69a92ea0f0c5e14f5f48c1ef99f9a7263b01710df376792e74358ae14e49c3897
     HEAD_REF master
 )
 
@@ -32,6 +32,8 @@ vcpkg_configure_cmake(
 
 vcpkg_install_cmake()
 
+vcpkg_fixup_cmake_targets(CONFIG_PATH lib/draco/cmake)
+
 # Install tools and plugins
 file(GLOB TOOLS "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/*.exe")
 if(TOOLS)
@@ -40,8 +42,12 @@ if(TOOLS)
 endif()
 
 file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/bin)
+file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/lib/draco)
 file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/bin)
+file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/lib/draco)
+
 file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/include)
+file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/share)
 
 vcpkg_copy_pdbs()
 

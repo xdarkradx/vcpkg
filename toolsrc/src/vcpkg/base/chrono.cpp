@@ -15,7 +15,7 @@ namespace vcpkg::Chrono
         using std::chrono::nanoseconds;
         using std::chrono::seconds;
 
-        const double nanos_as_double = static_cast<double>(nanos.count());
+        const auto nanos_as_double = static_cast<double>(nanos.count());
 
         if (duration_cast<hours>(nanos) > hours())
         {
@@ -92,14 +92,20 @@ namespace vcpkg::Chrono
     Optional<CTime> CTime::parse(CStringView str)
     {
         CTime ret;
-        auto assigned = sscanf_s(str.c_str(),
-                                 "%d-%d-%dT%d:%d:%d.",
-                                 &ret.m_tm.tm_year,
-                                 &ret.m_tm.tm_mon,
-                                 &ret.m_tm.tm_mday,
-                                 &ret.m_tm.tm_hour,
-                                 &ret.m_tm.tm_min,
-                                 &ret.m_tm.tm_sec);
+        const auto assigned =
+#if defined(_WIN32)
+            sscanf_s
+#else
+            sscanf
+#endif
+            (str.c_str(),
+             "%d-%d-%dT%d:%d:%d.",
+             &ret.m_tm.tm_year,
+             &ret.m_tm.tm_mon,
+             &ret.m_tm.tm_mday,
+             &ret.m_tm.tm_hour,
+             &ret.m_tm.tm_min,
+             &ret.m_tm.tm_sec);
         if (assigned != 6) return nullopt;
         if (ret.m_tm.tm_year < 1900) return nullopt;
         ret.m_tm.tm_year -= 1900;
@@ -111,15 +117,13 @@ namespace vcpkg::Chrono
 
     std::string CTime::to_string() const
     {
-        std::array<char, 80> date;
-        date.fill(0);
-
+        std::array<char, 80> date{};
         strftime(&date[0], date.size(), "%Y-%m-%dT%H:%M:%S.0Z", &m_tm);
         return &date[0];
     }
     std::chrono::system_clock::time_point CTime::to_time_point() const
     {
-        auto t = mktime(&m_tm);
+        const time_t t = mktime(&m_tm);
         return std::chrono::system_clock::from_time_t(t);
     }
 }

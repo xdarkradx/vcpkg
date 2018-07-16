@@ -16,7 +16,7 @@ namespace vcpkg
         template<class T>
         struct OptionalStorage
         {
-            constexpr OptionalStorage() : m_is_present(false), m_t() {}
+            constexpr OptionalStorage() noexcept : m_is_present(false), m_t() {}
             constexpr OptionalStorage(const T& t) : m_is_present(true), m_t(t) {}
             constexpr OptionalStorage(T&& t) : m_is_present(true), m_t(std::move(t)) {}
 
@@ -33,7 +33,7 @@ namespace vcpkg
         template<class T>
         struct OptionalStorage<T&>
         {
-            constexpr OptionalStorage() : m_t(nullptr) {}
+            constexpr OptionalStorage() noexcept : m_t(nullptr) {}
             constexpr OptionalStorage(T& t) : m_t(&t) {}
 
             constexpr bool has_value() const { return m_t != nullptr; }
@@ -48,15 +48,13 @@ namespace vcpkg
     template<class T>
     struct Optional
     {
-        constexpr Optional() {}
+        constexpr Optional() noexcept {}
 
         // Constructors are intentionally implicit
         constexpr Optional(NullOpt) {}
 
-        Optional(const T& t) : m_base(t) {}
-
-        template<class = std::enable_if_t<!std::is_reference<T>::value>>
-        Optional(T&& t) : m_base(std::move(t))
+        template<class U>
+        Optional(U&& t) : m_base(std::forward<U>(t))
         {
         }
 
@@ -64,6 +62,12 @@ namespace vcpkg
         {
             this->exit_if_null(line_info);
             return std::move(this->m_base.value());
+        }
+
+        T& value_or_exit(const LineInfo& line_info) &
+        {
+            this->exit_if_null(line_info);
+            return this->m_base.value();
         }
 
         const T& value_or_exit(const LineInfo& line_info) const&

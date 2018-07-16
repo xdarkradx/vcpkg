@@ -1,71 +1,38 @@
+if(VCPKG_LIBRARY_LINKAGE STREQUAL "dynamic")
+    message("live555 cannot currently be built dynamically. Building static instead.")
+    set(VCPKG_LIBRARY_LINKAGE "static")
+endif()
+
+# The current Live555 version from http://www.live555.com/liveMedia/public/
+set(LIVE_VERSION 2018.07.07)
+set(LIVE_SHA e7d4ddf51e9666c6ebe9a46976035b68fea94be54825535ffb04006cd242b9d3ad08250305206442bed3500d1e8d628ccf44302c485f63a9e244b3f8b1e27fe4)
+
 include(vcpkg_common_functions)
-set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/live)
+set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/${LIVE_VERSION}/live)
 vcpkg_download_distfile(ARCHIVE
-    URLS "http://www.live555.com/liveMedia/public/live.2017.10.28.tar.gz"
-    FILENAME "live.2017.10.28.tar.gz"
-    SHA512 eea5bdb8d89e76c8b6aeb6ec04b77af3048cb41f228d230ba4da6045e9bc691a456023d44d8650fe690b08143567ed5af5b633f5b6522debff79344a813dc7d0
+    URLS "http://www.live555.com/liveMedia/public/live.${LIVE_VERSION}.tar.gz"
+    FILENAME "live.${LIVE_VERSION}.tar.gz"
+    SHA512 ${LIVE_SHA}
 )
-vcpkg_extract_source_archive(${ARCHIVE})
+vcpkg_extract_source_archive(${ARCHIVE} ${CURRENT_BUILDTREES_DIR}/src/${LIVE_VERSION})
 
-vcpkg_execute_required_process(COMMAND ${CMAKE_COMMAND}  -E copy ${CMAKE_CURRENT_LIST_DIR}/master.txt  ${CURRENT_BUILDTREES_DIR}/src/CMakeLists.txt WORKING_DIRECTORY ${CURRENT_BUILDTREES_DIR})
-vcpkg_execute_required_process(COMMAND ${CMAKE_COMMAND}  -E copy ${CMAKE_CURRENT_LIST_DIR}/live.txt  ${CURRENT_BUILDTREES_DIR}/src/live/CMakeLists.txt WORKING_DIRECTORY ${CURRENT_BUILDTREES_DIR})
-vcpkg_execute_required_process(COMMAND ${CMAKE_COMMAND}  -E copy ${CMAKE_CURRENT_LIST_DIR}/BasicUsageEnvironment.txt  ${CURRENT_BUILDTREES_DIR}/src/live/BasicUsageEnvironment/CMakeLists.txt WORKING_DIRECTORY ${CURRENT_BUILDTREES_DIR})
-vcpkg_execute_required_process(COMMAND ${CMAKE_COMMAND}  -E copy ${CMAKE_CURRENT_LIST_DIR}/groupsock.txt  ${CURRENT_BUILDTREES_DIR}/src/live/groupsock/CMakeLists.txt WORKING_DIRECTORY ${CURRENT_BUILDTREES_DIR})
-vcpkg_execute_required_process(COMMAND ${CMAKE_COMMAND}  -E copy ${CMAKE_CURRENT_LIST_DIR}/liveMedia.txt  ${CURRENT_BUILDTREES_DIR}/src/live/liveMedia/CMakeLists.txt WORKING_DIRECTORY ${CURRENT_BUILDTREES_DIR})
-vcpkg_execute_required_process(COMMAND ${CMAKE_COMMAND}  -E copy ${CMAKE_CURRENT_LIST_DIR}/mediaServer.txt  ${CURRENT_BUILDTREES_DIR}/src/live/mediaServer/CMakeLists.txt WORKING_DIRECTORY ${CURRENT_BUILDTREES_DIR})
-vcpkg_execute_required_process(COMMAND ${CMAKE_COMMAND}  -E copy ${CMAKE_CURRENT_LIST_DIR}/proxyServer.txt  ${CURRENT_BUILDTREES_DIR}/src/live/proxyServer/CMakeLists.txt WORKING_DIRECTORY ${CURRENT_BUILDTREES_DIR})
-vcpkg_execute_required_process(COMMAND ${CMAKE_COMMAND}  -E copy ${CMAKE_CURRENT_LIST_DIR}/testProgs.txt  ${CURRENT_BUILDTREES_DIR}/src/live/testProgs/CMakeLists.txt WORKING_DIRECTORY ${CURRENT_BUILDTREES_DIR})
-vcpkg_execute_required_process(COMMAND ${CMAKE_COMMAND}  -E copy ${CMAKE_CURRENT_LIST_DIR}/UsageEnvironment.txt  ${CURRENT_BUILDTREES_DIR}/src/live/UsageEnvironment/CMakeLists.txt WORKING_DIRECTORY ${CURRENT_BUILDTREES_DIR})
-
-set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src)
+file(COPY ${CMAKE_CURRENT_LIST_DIR}/CMakeLists.txt DESTINATION ${SOURCE_PATH})
 
 vcpkg_configure_cmake(
     SOURCE_PATH ${SOURCE_PATH}
+    PREFER_NINJA
 )
 
-vcpkg_build_cmake()
-
-file(GLOB DLLS
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/*.dll"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/Release/*.dll"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/*/Release/*.dll"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/live/*/Release/*.dll"
-)
-file(GLOB LIBS
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/*.lib"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/Release/*.lib"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/*/Release/*.lib"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/live/*/Release/*.lib"
-)
-file(GLOB DEBUG_DLLS
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/*.dll"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/Debug/*.dll"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/*/Debug/*.dll"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/live/*/Debug/*.dll"
-)
-file(GLOB DEBUG_LIBS
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/*.lib"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/Debug/*.lib"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/*/Debug/*.lib"
-    "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/live/*/Debug/*.lib"
-
-)
+vcpkg_install_cmake()
 
 file(GLOB HEADERS
-"${CURRENT_BUILDTREES_DIR}/src/live/BasicUsageEnvironment/include/*.h*"
-"${CURRENT_BUILDTREES_DIR}/src/live/groupsock/include/*.h*"
-"${CURRENT_BUILDTREES_DIR}/src/live/liveMedia/include/*.h*"
-"${CURRENT_BUILDTREES_DIR}/src/live/UsageEnvironment/include/*.h*"
+    "${SOURCE_PATH}/BasicUsageEnvironment/include/*.h*"
+    "${SOURCE_PATH}/groupsock/include/*.h*"
+    "${SOURCE_PATH}/liveMedia/include/*.h*"
+    "${SOURCE_PATH}/UsageEnvironment/include/*.h*"
 )
-if(DLLS)
-    file(INSTALL ${DLLS} DESTINATION ${CURRENT_PACKAGES_DIR}/bin)
-endif()
-file(INSTALL ${LIBS} DESTINATION ${CURRENT_PACKAGES_DIR}/lib)
-if(DEBUG_DLLS)
-    file(INSTALL ${DEBUG_DLLS} DESTINATION ${CURRENT_PACKAGES_DIR}/debug/bin)
-endif()
-file(INSTALL ${DEBUG_LIBS} DESTINATION ${CURRENT_PACKAGES_DIR}/debug/lib)
-file(INSTALL ${HEADERS} DESTINATION ${CURRENT_PACKAGES_DIR}/include)
-file(INSTALL ${CURRENT_BUILDTREES_DIR}/src/live/COPYING DESTINATION ${CURRENT_PACKAGES_DIR}/share/live555 RENAME copyright)
+
+file(COPY ${HEADERS} DESTINATION ${CURRENT_PACKAGES_DIR}/include)
+file(INSTALL ${SOURCE_PATH}/COPYING DESTINATION ${CURRENT_PACKAGES_DIR}/share/live555 RENAME copyright)
 
 vcpkg_copy_pdbs()

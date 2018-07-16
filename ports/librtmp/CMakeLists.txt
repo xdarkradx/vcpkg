@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.8)
 
 project(librtmp C)
 
-find_package(zlib REQUIRED)
-find_package(openssl REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 include_directories(${ZLIB_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -36,7 +36,6 @@ set(SRCS librtmp/amf.c
          librtmp/log.c
          librtmp/parseurl.c
          librtmp/rtmp.c
-         librtmp/librtmp.def
 )
 
 if(MSVC)
@@ -54,4 +53,4 @@ install(TARGETS librtmp
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib)
 
-install(FILES librtmp/rtmp.h librtmp/amf.h DESTINATION include/librtmp)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/librtmp DESTINATION include FILES_MATCHING PATTERN "*.h")

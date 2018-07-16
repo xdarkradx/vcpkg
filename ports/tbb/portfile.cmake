@@ -5,17 +5,14 @@ endif()
 if (VCPKG_CRT_LINKAGE STREQUAL static)
     message(FATAL_ERROR "TBB does not currently support static crt linkage")
 endif()
-if (VCPKG_CMAKE_SYSTEM_NAME STREQUAL WindowsStore)
-    message(FATAL_ERROR "TBB does not currently support UWP")
-endif()
 
 include(vcpkg_common_functions)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO 01org/tbb
-    REF 2017_U7
-    SHA512 e4a6fcc3cace9b57061e8661b09af9cb2be721224889af52f4c1b4faec1a130512b7c960e21171ebb8105593a81bd9b80bef20cda91bfac174d535d0f7ccb680
-    HEAD_REF tbb_2017)
+    REF 2018_U5
+    SHA512 3e8d20276ccb1b50099f96b6cf968e3d0ada53caea1fa836ecb8652f1dca236fbbbf2c783e64ea2f761f7f21725064d19b72d176e35e4dc29706b8a30965153b
+    HEAD_REF tbb_2018)
 
 if(TRIPLET_SYSTEM_ARCH STREQUAL x86)
 	set(BUILD_ARCH Win32)
@@ -23,7 +20,9 @@ else()
 	set(BUILD_ARCH ${TRIPLET_SYSTEM_ARCH})
 endif()
 
-vcpkg_build_msbuild(PROJECT_PATH ${SOURCE_PATH}/build/vs2012/makefile.sln PLATFORM ${BUILD_ARCH})
+set(TBB_MSBUILD_PROJECT_DIR ${SOURCE_PATH}/build/vs2013)
+
+vcpkg_build_msbuild(PROJECT_PATH ${TBB_MSBUILD_PROJECT_DIR}/makefile.sln PLATFORM ${BUILD_ARCH})
 
 # Installation
 message(STATUS "Installing")
@@ -32,8 +31,8 @@ file(COPY
   ${SOURCE_PATH}/include/serial
   DESTINATION ${CURRENT_PACKAGES_DIR}/include)
 
-set(DEBUG_OUTPUT_PATH ${SOURCE_PATH}/build/vs2012/${BUILD_ARCH}/Debug)
-set(RELEASE_OUTPUT_PATH ${SOURCE_PATH}/build/vs2012/${BUILD_ARCH}/Release)
+set(DEBUG_OUTPUT_PATH ${TBB_MSBUILD_PROJECT_DIR}/${BUILD_ARCH}/Debug)
+set(RELEASE_OUTPUT_PATH ${TBB_MSBUILD_PROJECT_DIR}/${BUILD_ARCH}/Release)
 
 file(COPY
   ${RELEASE_OUTPUT_PATH}/tbb.lib
@@ -59,7 +58,6 @@ file(COPY
 
 vcpkg_copy_pdbs()
 
-# Since 2017_U7 TBB provides a CMake script to generate config file
 include(${SOURCE_PATH}/cmake/TBBMakeConfig.cmake)
 tbb_make_config(TBB_ROOT ${CURRENT_PACKAGES_DIR}
     CONFIG_DIR TBB_CONFIG_DIR # is set to ${CURRENT_PACKAGES_DIR}/cmake

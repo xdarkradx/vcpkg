@@ -1,23 +1,42 @@
 include(vcpkg_common_functions)
-set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/harfbuzz-1.6.3)
-vcpkg_download_distfile(ARCHIVE
-    URLS "https://github.com/behdad/harfbuzz/releases/download/1.6.3/harfbuzz-1.6.3.tar.bz2"
-    FILENAME "harfbuzz-1.6.3.tar.bz2"
-    SHA512 37d1a161d9074e9898d9ef6cca6dffffc725005828d700744553b0145373b69bcd3b08f507d49f4c2e05850d9275a54f15983356c547c86e5e3c202cc7cbfbe8
+
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO behdad/harfbuzz
+    REF 1.8.2
+    SHA512 83a5126f17e57b05c36779f91ea9c2454731d7e6f514fce134ae5e652972a8231723773e0e0f64bfe8588f8cfcf2e041031a3328ee3102d440b2ac427aa1d764
+    HEAD_REF master
 )
-vcpkg_extract_source_archive(${ARCHIVE})
 
 vcpkg_apply_patches(
     SOURCE_PATH ${SOURCE_PATH}
-    PATCHES "${CMAKE_CURRENT_LIST_DIR}/0001-fix-uwp-build.patch"
+    PATCHES
+        "${CMAKE_CURRENT_LIST_DIR}/0001-fix-uwp-build.patch"
+        "${CMAKE_CURRENT_LIST_DIR}/find-package-freetype-2.patch"
 )
 
-if(VCPKG_TARGET_ARCHITECTURE STREQUAL "arm" OR VCPKG_CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-    SET(HAVE_GLIB "OFF")
-    SET(BUILTIN_UCDN "ON")
-else()
-    SET(HAVE_GLIB "ON")
-    SET(BUILTIN_UCDN "OFF")
+SET(HB_HAVE_ICU "OFF")
+if("icu" IN_LIST FEATURES)
+    SET(HB_HAVE_ICU "ON")
+endif()
+
+## Unicode callbacks
+
+# Builtin (UCDN)
+set(BUILTIN_UCDN OFF)
+if("ucdn" IN_LIST FEATURES)
+    set(BUILTIN_UCDN ON)
+endif()
+
+# Glib
+set(HAVE_GLIB OFF)
+if("glib" IN_LIST FEATURES)
+    set(HAVE_GLIB ON)
+endif()
+
+# At least one Unicode callback must be specified, or harfbuzz compilation fails
+if(NOT (BUILTIN_UCDN OR HAVE_GLIB))
+    message(FATAL_ERROR "Error: At least one Unicode callback must be specified (ucdn, glib).")
 endif()
 
 vcpkg_configure_cmake(
@@ -25,8 +44,9 @@ vcpkg_configure_cmake(
     PREFER_NINJA
     OPTIONS
         -DHB_HAVE_FREETYPE=ON
-        -DHB_HAVE_GLIB=${HAVE_GLIB}
         -DHB_BUILTIN_UCDN=${BUILTIN_UCDN}
+        -DHB_HAVE_ICU=${HB_HAVE_ICU}
+        -DHB_HAVE_GLIB=${HAVE_GLIB}
     OPTIONS_DEBUG
         -DSKIP_INSTALL_HEADERS=ON
 )

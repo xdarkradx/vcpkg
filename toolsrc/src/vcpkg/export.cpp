@@ -1,7 +1,5 @@
 #include "pch.h"
 
-#include <vcpkg/base/system.h>
-#include <vcpkg/base/util.h>
 #include <vcpkg/commands.h>
 #include <vcpkg/dependencies.h>
 #include <vcpkg/export.h>
@@ -12,7 +10,9 @@
 #include <vcpkg/paragraphs.h>
 #include <vcpkg/vcpkglib.h>
 
-#include <regex>
+#include <vcpkg/base/stringliteral.h>
+#include <vcpkg/base/system.h>
+#include <vcpkg/base/util.h>
 
 namespace vcpkg::Export
 {
@@ -68,9 +68,16 @@ namespace vcpkg::Export
     static void print_plan(const std::map<ExportPlanType, std::vector<const ExportPlanAction*>>& group_by_plan_type)
     {
         static constexpr std::array<ExportPlanType, 2> ORDER = {ExportPlanType::ALREADY_BUILT,
-                                                                ExportPlanType::PORT_AVAILABLE_BUT_NOT_BUILT};
-        static constexpr Build::BuildPackageOptions build_options = {Build::UseHeadVersion::NO,
-                                                                     Build::AllowDownloads::YES};
+                                                                ExportPlanType::NOT_BUILT};
+        static constexpr Build::BuildPackageOptions BUILD_OPTIONS = {
+            Build::UseHeadVersion::NO,
+            Build::AllowDownloads::YES,
+            Build::CleanBuildtrees::NO,
+            Build::CleanPackages::NO,
+            Build::DownloadTool::BUILT_IN,
+            Build::BinaryCaching::NO,
+            Build::FailOnTombstone::NO,
+        };
 
         for (const ExportPlanType plan_type : ORDER)
         {
@@ -83,7 +90,7 @@ namespace vcpkg::Export
             std::vector<const ExportPlanAction*> cont = it->second;
             std::sort(cont.begin(), cont.end(), &ExportPlanAction::compare_by_name);
             const std::string as_string = Strings::join("\n", cont, [](const ExportPlanAction* p) {
-                return Dependencies::to_output_string(p->request_type, p->spec.to_string(), build_options);
+                return Dependencies::to_output_string(p->request_type, p->spec.to_string(), BUILD_OPTIONS);
             });
 
             switch (plan_type)
@@ -91,7 +98,7 @@ namespace vcpkg::Export
                 case ExportPlanType::ALREADY_BUILT:
                     System::println("The following packages are already built and will be exported:\n%s", as_string);
                     continue;
-                case ExportPlanType::PORT_AVAILABLE_BUT_NOT_BUILT:
+                case ExportPlanType::NOT_BUILT:
                     System::println("The following packages need to be built:\n%s", as_string);
                     continue;
                 default: Checks::unreachable(VCPKG_LINE_INFO);
@@ -122,7 +129,7 @@ namespace vcpkg::Export
                                     const fs::path& output_dir)
     {
         Files::Filesystem& fs = paths.get_filesystem();
-        const fs::path& nuget_exe = paths.get_nuget_exe();
+        const fs::path& nuget_exe = paths.get_tool_exe(Tools::NUGET);
 
         // This file will be placed in "build\native" in the nuget package. Therefore, go up two dirs.
         const std::string targets_redirect_content =
@@ -188,7 +195,7 @@ namespace vcpkg::Export
                                       const fs::path& output_dir,
                                       const ArchiveFormat& format)
     {
-        const fs::path& cmake_exe = paths.get_cmake_exe();
+        const fs::path& cmake_exe = paths.get_tool_exe(Tools::CMAKE);
 
         const std::string exported_dir_filename = raw_exported_dir.filename().u8string();
         const std::string exported_archive_filename =
@@ -224,9 +231,6 @@ namespace vcpkg::Export
             {fs::path{"scripts"} / "buildsystems" / "msbuild" / "vcpkg.targets"},
             {fs::path{"scripts"} / "buildsystems" / "vcpkg.cmake"},
             {fs::path{"scripts"} / "cmake" / "vcpkg_get_windows_sdk.cmake"},
-            {fs::path{"scripts"} / "getWindowsSDK.ps1"},
-            {fs::path{"scripts"} / "getProgramFilesPlatformBitness.ps1"},
-            {fs::path{"scripts"} / "getProgramFiles32bit.ps1"},
         };
 
         for (const fs::path& file : integration_files_relative_to_root)
@@ -244,12 +248,14 @@ namespace vcpkg::Export
 
     struct ExportArguments
     {
-        bool dry_run;
-        bool raw;
-        bool nuget;
-        bool ifw;
-        bool zip;
-        bool seven_zip;
+        bool dry_run = false;
+        bool raw = false;
+        bool nuget = false;
+        bool ifw = false;
+        bool zip = false;
+        bool seven_zip = false;
+
+        Optional<std::string> maybe_output;
 
         Optional<std::string> maybe_nuget_id;
         Optional<std::string> maybe_nuget_version;
@@ -258,21 +264,22 @@ namespace vcpkg::Export
         std::vector<PackageSpec> specs;
     };
 
-    static const std::string OPTION_DRY_RUN = "--dry-run";
-    static const std::string OPTION_RAW = "--raw";
-    static const std::string OPTION_NUGET = "--nuget";
-    static const std::string OPTION_IFW = "--ifw";
-    static const std::string OPTION_ZIP = "--zip";
-    static const std::string OPTION_SEVEN_ZIP = "--7zip";
-    static const std::string OPTION_NUGET_ID = "--nuget-id";
-    static const std::string OPTION_NUGET_VERSION = "--nuget-version";
-    static const std::string OPTION_IFW_REPOSITORY_URL = "--ifw-repository-url";
-    static const std::string OPTION_IFW_PACKAGES_DIR_PATH = "--ifw-packages-directory-path";
-    static const std::string OPTION_IFW_REPOSITORY_DIR_PATH = "--ifw-repository-directory-path";
-    static const std::string OPTION_IFW_CONFIG_FILE_PATH = "--ifw-configuration-file-path";
-    static const std::string OPTION_IFW_INSTALLER_FILE_PATH = "--ifw-installer-file-path";
+    static constexpr StringLiteral OPTION_OUTPUT = "--output";
+    static constexpr StringLiteral OPTION_DRY_RUN = "--dry-run";
+    static constexpr StringLiteral OPTION_RAW = "--raw";
+    static constexpr StringLiteral OPTION_NUGET = "--nuget";
+    static constexpr StringLiteral OPTION_IFW = "--ifw";
+    static constexpr StringLiteral OPTION_ZIP = "--zip";
+    static constexpr StringLiteral OPTION_SEVEN_ZIP = "--7zip";
+    static constexpr StringLiteral OPTION_NUGET_ID = "--nuget-id";
+    static constexpr StringLiteral OPTION_NUGET_VERSION = "--nuget-version";
+    static constexpr StringLiteral OPTION_IFW_REPOSITORY_URL = "--ifw-repository-url";
+    static constexpr StringLiteral OPTION_IFW_PACKAGES_DIR_PATH = "--ifw-packages-directory-path";
+    static constexpr StringLiteral OPTION_IFW_REPOSITORY_DIR_PATH = "--ifw-repository-directory-path";
+    static constexpr StringLiteral OPTION_IFW_CONFIG_FILE_PATH = "--ifw-configuration-file-path";
+    static constexpr StringLiteral OPTION_IFW_INSTALLER_FILE_PATH = "--ifw-installer-file-path";
 
-    static const std::array<CommandSwitch, 6> EXPORT_SWITCHES = {{
+    static constexpr std::array<CommandSwitch, 6> EXPORT_SWITCHES = {{
         {OPTION_DRY_RUN, "Do not actually export"},
         {OPTION_RAW, "Export to an uncompressed directory"},
         {OPTION_NUGET, "Export a NuGet package"},
@@ -280,8 +287,10 @@ namespace vcpkg::Export
         {OPTION_ZIP, "Export to a zip file"},
         {OPTION_SEVEN_ZIP, "Export to a 7zip (.7z) file"},
     }};
-    static const std::array<CommandSetting, 7> EXPORT_SETTINGS = {{
-        {OPTION_NUGET_ID, "Specify the id for the exported NuGet package"},
+
+    static constexpr std::array<CommandSetting, 8> EXPORT_SETTINGS = {{
+        {OPTION_OUTPUT, "Specify the output name (used to construct filename)"},
+        {OPTION_NUGET_ID, "Specify the id for the exported NuGet package (overrides --output)"},
         {OPTION_NUGET_VERSION, "Specify the version for the exported NuGet package"},
         {OPTION_IFW_REPOSITORY_URL, "Specify the remote repository URL for the online installer"},
         {OPTION_IFW_PACKAGES_DIR_PATH, "Specify the temporary directory path for the repacked packages"},
@@ -315,6 +324,8 @@ namespace vcpkg::Export
         ret.ifw = options.switches.find(OPTION_IFW) != options.switches.cend();
         ret.zip = options.switches.find(OPTION_ZIP) != options.switches.cend();
         ret.seven_zip = options.switches.find(OPTION_SEVEN_ZIP) != options.switches.cend();
+
+        ret.maybe_output = maybe_lookup(options.settings, OPTION_OUTPUT);
 
         if (!ret.raw && !ret.nuget && !ret.ifw && !ret.zip && !ret.seven_zip && !ret.dry_run)
         {
@@ -377,7 +388,7 @@ namespace vcpkg::Export
                         "    %s"
                         "\n",
                         cmake_variable.s);
-    };
+    }
 
     static void handle_raw_based_export(Span<const ExportPlanAction> export_plan,
                                         const ExportArguments& opts,
@@ -402,8 +413,7 @@ namespace vcpkg::Export
             const std::string display_name = action.spec.to_string();
             System::println("Exporting package %s... ", display_name);
 
-            const BinaryParagraph& binary_paragraph =
-                action.any_paragraph.binary_control_file.value_or_exit(VCPKG_LINE_INFO).core_paragraph;
+            const BinaryParagraph& binary_paragraph = action.core_paragraph().value_or_exit(VCPKG_LINE_INFO);
 
             const InstallDir dirs = InstallDir::from_destination_root(
                 raw_exported_dir_path / "installed",
@@ -421,7 +431,7 @@ namespace vcpkg::Export
         {
             System::println(
                 System::Color::success, R"(Files exported at: "%s")", raw_exported_dir_path.generic_string());
-            print_next_step_info(export_to_path);
+            print_next_step_info(raw_exported_dir_path);
         }
 
         if (opts.nuget)
@@ -479,8 +489,7 @@ With a project open, go to Tools->NuGet Package Manager->Package Manager Console
         // create the plan
         const StatusParagraphs status_db = database_load_check(paths);
         Dependencies::PathsPortFileProvider provider(paths);
-        std::vector<ExportPlanAction> export_plan =
-            Dependencies::create_export_plan(provider, paths, opts.specs, status_db);
+        std::vector<ExportPlanAction> export_plan = Dependencies::create_export_plan(opts.specs, status_db);
         Checks::check_exit(VCPKG_LINE_INFO, !export_plan.empty(), "Export plan cannot be empty");
 
         std::map<ExportPlanType, std::vector<const ExportPlanAction*>> group_by_plan_type;
@@ -498,7 +507,7 @@ With a project open, go to Tools->NuGet Package Manager->Package Manager Console
                             "Additional packages (*) need to be exported to complete this operation.");
         }
 
-        const auto it = group_by_plan_type.find(ExportPlanType::PORT_AVAILABLE_BUT_NOT_BUILT);
+        const auto it = group_by_plan_type.find(ExportPlanType::NOT_BUILT);
         if (it != group_by_plan_type.cend() && !it->second.empty())
         {
             System::println(System::Color::error, "There are packages that have not been built.");
@@ -520,7 +529,7 @@ With a project open, go to Tools->NuGet Package Manager->Package Manager Console
             Checks::exit_success(VCPKG_LINE_INFO);
         }
 
-        std::string export_id = create_export_id();
+        std::string export_id = opts.maybe_output.value_or(create_export_id());
 
         if (opts.raw || opts.nuget || opts.zip || opts.seven_zip)
         {

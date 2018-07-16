@@ -3,8 +3,8 @@ include(vcpkg_common_functions)
 vcpkg_from_github(
   OUT_SOURCE_PATH SOURCE_PATH
   REPO lvandeve/lodepng
-  REF 8a0f16afe74a6abf85e3b45e9558283022021a59
-  SHA512 189dde0a0982822b6dfc3f886d8035338ed200958eed8394c5c64aa97ddcf758b3989beae14ce8f26a78efa9fb4b94932bb02b41cacd62bd62a46ebf9b324def
+  REF bd8f274fb51ef18b6d26b5f106ae4bef2150622e
+  SHA512 6082491dc5d6194e3ed2522c74de73f48f43ae91a5e47e04309ef7267a92412f860fec02241b5c0bd7728b931f4fbe6983727d9cf701a2cd4bd4affc6962d9b3
   HEAD_REF master
 )
 

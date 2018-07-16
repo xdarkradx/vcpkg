@@ -3,10 +3,17 @@ include(vcpkg_common_functions)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO OpenImageIO/oiio
-    REF Release-1.7.15
-    SHA512 5b83961a77de36082e0a3abeac8015f9455504680d7437777524a9ac17ac7994df2a2ad1af86a884cf17c1afcd71a36a30e24711cba8d8a30511c05e36d7fadc
+    REF Release-1.8.12
+    SHA512 2475792ff475d34b47b6af5ca71c6cf6d9d8c60452a506b1bf740b9dbb20ea72109117dc9a531b8302095de99f6280172723f26e23dc6e038256cbb43b697145
     HEAD_REF master
+    PATCHES
+        # fix_libraw: replace 'LibRaw_r_LIBRARIES' occurences by 'LibRaw_LIBRARIES'
+        #             since libraw port installs 'raw_r' library as 'raw'
+        ${CMAKE_CURRENT_LIST_DIR}/fix_libraw.patch
 )
+
+file(REMOVE_RECURSE "${SOURCE_PATH}/ext")
+file(MAKE_DIRECTORY "${SOURCE_PATH}/ext/robin-map/tsl")
 
 if(VCPKG_LIBRARY_LINKAGE STREQUAL static)
     set(BUILDSTATIC ON)
@@ -14,6 +21,12 @@ if(VCPKG_LIBRARY_LINKAGE STREQUAL static)
 else()
     set(BUILDSTATIC OFF)
     set(LINKSTATIC OFF)
+endif()
+
+# Features
+set(USE_LIBRAW OFF)
+if("libraw" IN_LIST FEATURES)
+    set(USE_LIBRAW ON)
 endif()
 
 vcpkg_configure_cmake(
@@ -27,7 +40,7 @@ vcpkg_configure_cmake(
         -DUSE_FIELD3D=OFF
         -DUSE_FREETYPE=OFF
         -DUSE_GIF=OFF
-        -DUSE_LIBRAW=OFF
+        -DUSE_LIBRAW=${USE_LIBRAW}
         -DUSE_NUKE=OFF
         -DUSE_OCIO=OFF
         -DUSE_OPENCV=OFF
@@ -37,6 +50,9 @@ vcpkg_configure_cmake(
         -DUSE_QT=OFF
         -DBUILDSTATIC=${BUILDSTATIC}
         -DLINKSTATIC=${LINKSTATIC}
+        -DBUILD_MISSING_PYBIND11=OFF
+        -DBUILD_MISSING_DEPS=OFF
+        -DCMAKE_DISABLE_FIND_PACKAGE_Git=ON
 )
 
 vcpkg_install_cmake()
@@ -47,6 +63,7 @@ vcpkg_copy_pdbs()
 file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/doc)
 file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/doc)
 file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/include)
+file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/share)
 
 # Handle copyright
 file(COPY ${SOURCE_PATH}/LICENSE DESTINATION ${CURRENT_PACKAGES_DIR}/share/openimageio)
