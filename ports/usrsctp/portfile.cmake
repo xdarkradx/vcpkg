@@ -13,12 +13,16 @@ vcpkg_from_github(
 vcpkg_configure_cmake(
     SOURCE_PATH ${SOURCE_PATH}
     PREFER_NINJA
-    OPTIONS -Dsctp_werror=OFF
+    OPTIONS -Dsctp_werror=OFF -Dsctp_build_programs=OFF
 )
 
 vcpkg_install_cmake()
 
-file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/include)
+file(REMOVE_RECURSE
+    ${CURRENT_PACKAGES_DIR}/debug/include
+    ${CURRENT_PACKAGES_DIR}/debug/lib/usrsctp.dll
+    ${CURRENT_PACKAGES_DIR}/lib/usrsctp.dll
+)
 
 configure_file(${SOURCE_PATH}/LICENSE.md ${CURRENT_PACKAGES_DIR}/share/usrsctp/copyright COPYONLY)
 
