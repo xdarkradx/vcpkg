@@ -5,8 +5,8 @@ vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO GoogleCloudPlatform/google-cloud-cpp
-    REF a0f27355af654605b321e764a7dd9464c54340a3
-    SHA512 90f876ebf4bea40c5bc12d2bd20d27b48202f951d57a68b657c07b7d468b2ac5a00e39a3a6fca48f92030d89ba7d9706eb52b3c8e734b392aee63632af042b5d
+    REF 6ab621ba2262b984cbc9261db43951dc251fac5e
+    SHA512 2a1b3d91e1ee6f1279638530f1ce326b57af2f7e5cfa722d9033fc56947b889bd4bb6833cd8e03847ec92dae27cedc1dc820bbbf4848da53d1cb4795e1232d5e
     HEAD_REF master
     PATCHES
         include-protobuf.patch
