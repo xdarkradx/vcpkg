@@ -4,29 +4,17 @@ if(VCPKG_CMAKE_SYSTEM_NAME STREQUAL WindowsStore)
     message(FATAL_ERROR "WindowsStore not supported")
 endif()
 
-set(VERSION 0.7.6)
+set(VERSION 0.8.5)
 vcpkg_download_distfile(ARCHIVE
-    URLS "https://www.libssh.org/files/0.7/libssh-${VERSION}.tar.xz"
+    URLS "https://www.libssh.org/files/0.8/libssh-${VERSION}.tar.xz"
     FILENAME "libssh-${VERSION}.tar.xz"
-    SHA512 2a01402b5a9fab9ecc29200544ed45d3f2c40871ed1c8241ca793f8dc7fdb3ad2150f6a522c4321affa9b8778e280dc7ed10f76adfc4a73f0751ae735a42f56c
-)
-
-vcpkg_download_distfile(WINPATCH
-    URLS "https://bugs.libssh.org/rLIBSSHf81ca6161223e3566ce78a427571235fb6848fe9?diff=1"
-    FILENAME "libssh-f81ca616.patch"
-    SHA512 f3f6088f8f1bf8fe6226c1aa7b355d877be7f2aa9482c5e3de74b6a35fc5b28d8f89221d3afa5a5d3a5900519a86e5906516667ed22ad98f058616a8120999cd
+    SHA512 f1e90a5046e006d44a48ab36675167761d8e308ada7a1d7a1f7ba2825d222a2fab7e19dbc78b1371fee9ba74d9c55d9856a623f97842c9b9ad4c79215e344124
 )
 
 vcpkg_extract_source_archive_ex(
     OUT_SOURCE_PATH SOURCE_PATH
     ARCHIVE ${ARCHIVE}
-    REF ${VERSION}
-    PATCHES
-        build-one-flavor.patch
-        only-one-flavor-threads.patch
-        "${WINPATCH}"
-        missing-includes.patch
-)
+    REF ${VERSION})
 
 string(COMPARE EQUAL "${VCPKG_LIBRARY_LINKAGE}" "static" WITH_STATIC_LIB)
 
