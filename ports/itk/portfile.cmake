@@ -9,9 +9,9 @@ vcpkg_from_github(
 )
 
 if ("vtk" IN_LIST FEATURES)
-    set(ITKVtkGlue                     ON )
+    set(ITKVtkGlue ON)
 else()
-    set(ITKVtkGlue                     OFF )
+    set(ITKVtkGlue OFF)
 endif()
 
 # directory path length needs to be shorter than 50 characters
@@ -50,10 +50,9 @@ vcpkg_configure_cmake(
         #-DITK_WRAP_PYTHON=ON
         #-DITK_PYTHON_VERSION=3
 
-        # HDF5 must NOT be installed, otherwise it causes: ...\installed\x64-windows-static\include\H5Tpkg.h(25): fatal error C1189: #error:  "Do not include this file outside the H5T package!"
-        -DITK_USE_SYSTEM_HDF5=ON # if ON, causes: ...\buildtrees\itk\x64-windows-static-rel\Modules\ThirdParty\HDF5\src\itk_H5Cpp.h(25): fatal error C1083: Cannot open include file: 'H5Cpp.h': No such file or directory
+        -DITK_USE_SYSTEM_HDF5=ON # HDF5 was problematic in the past
 
-        -DModule_ITKVtkGlue=${ITKVtkGlue} # this option requires VTK to be a dependency in CONTROL file. VTK depends on HDF5!
+        -DModule_ITKVtkGlue=${ITKVtkGlue} # optional feature
         -DModule_IOSTL=ON # example how to turn on a non-default module
         -DModule_MorphologicalContourInterpolation=ON # example how to turn on a remote module
         -DModule_RLEImage=ON # example how to turn on a remote module
