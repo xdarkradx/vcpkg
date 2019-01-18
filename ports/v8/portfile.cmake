@@ -13,28 +13,14 @@
 # i.e. run `"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"`
 # or the equivalent on your system
 
-
-
-# Common Ambient Variables:
-#   CURRENT_BUILDTREES_DIR    = ${VCPKG_ROOT_DIR}\buildtrees\${PORT}
-#   CURRENT_PACKAGES_DIR      = ${VCPKG_ROOT_DIR}\packages\${PORT}_${TARGET_TRIPLET}
-#   CURRENT_PORT_DIR          = ${VCPKG_ROOT_DIR}\ports\${PORT}
-#   PORT                      = current port name (zlib, etc)
-#   TARGET_TRIPLET            = current triplet (x86-windows, x64-windows-static, etc)
-#   VCPKG_CRT_LINKAGE         = C runtime linkage type (static, dynamic)
-#   VCPKG_LIBRARY_LINKAGE     = target library linkage type (static, dynamic)
-#   VCPKG_ROOT_DIR            = <C:\path\to\current\vcpkg>
-#   VCPKG_TARGET_ARCHITECTURE = target architecture (x64, x86, arm)
-#
-
 include(vcpkg_common_functions)
-set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src)
-vcpkg_download_distfile(ARCHIVE
-    URLS "https://storage.googleapis.com/chrome-infra/depot_tools.zip"
-    FILENAME "depot_tools.zip"
-    SHA512 bf86dd0990575977e0b7fc6a5e2e6732883c9d05afcac2a86dbf197e1f532ef6fda4f5f69654c221c0b0edf8f9a714062d4d628426da6609e9ecc647c44f6bda
+
+vcpkg_from_git(
+    OUT_SOURCE_PATH SOURCE_PATH
+    URL "https://chromium.googlesource.com/chromium/tools/depot_tools.git"
+    REF deab113bfb35941f9a173e3a424bc7a67a55affa
+    SHA512 8e8f23b9e2e5f0a88826023c68874a3c94b405e9792e3695345b1eb52bb5fe9d222b41595e568634d0c5eb882000dbb9e0754c72a4715c5891bfd5e1daf5643d
 )
-vcpkg_extract_source_archive(${ARCHIVE})
 
 set(ENV{PATH} "${SOURCE_PATH};$ENV{PATH}")
 set(ENV{DEPOT_TOOLS_WIN_TOOLCHAIN} 0)
@@ -44,7 +30,7 @@ message(STATUS "Updating depot_tools...")
 vcpkg_execute_required_process(
     COMMAND ${SOURCE_PATH}/gclient.bat
     WORKING_DIRECTORY ${SOURCE_PATH}
-    LOGNAME ${TARGET_TRIPLET}
+    LOGNAME "update-depot-tools-${TARGET_TRIPLET}"
 )
 
 file(MAKE_DIRECTORY ${SOURCE_PATH}/v8)
@@ -58,15 +44,12 @@ if(NOT EXISTS ${SOURCE_PATH}/v8/v8)
 	)
 endif()
 
-message(STATUS "Switching to checkout of v8 version 6.3")
+message(STATUS "Switching to checkout of v8 version 7.2")
 
-find_package(Git)
-if(Git_FOUND)
-  message("Git found: ${GIT_EXECUTABLE}")
-endif()
+find_program(GIT NAMES git git.cmd)
 
 vcpkg_execute_required_process(
-    COMMAND ${GIT_EXECUTABLE} checkout "branch-heads/6.3"
+    COMMAND ${GIT} checkout "branch-heads/7.2"
     WORKING_DIRECTORY ${SOURCE_PATH}/v8/v8
     LOGNAME ${TARGET_TRIPLET}
 )
@@ -82,7 +65,7 @@ endif()
 message(STATUS "Generating build directory ${BUILDTYPE}")
 
 vcpkg_execute_required_process(
-    COMMAND ${SOURCE_PATH}/python.bat ${SOURCE_PATH}/v8/v8/tools/dev/v8gen.py ${BUILDTYPE}
+    COMMAND ${SOURCE_PATH}/python.bat ${SOURCE_PATH}/v8/v8/tools/dev/v8gen.py ${BUILDTYPE} -vv
     WORKING_DIRECTORY ${SOURCE_PATH}/v8/v8
     LOGNAME ${TARGET_TRIPLET}-dbg
 )
