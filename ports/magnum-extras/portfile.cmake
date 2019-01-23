@@ -2,16 +2,12 @@ include(vcpkg_common_functions)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO mosra/magnum-extras
-    REF v2018.02
-    SHA512 62c0832d19a36e0f89ffcd958356130c81f577b1091a9232d43307868caf51a1fd186c4aa196bd456d3c37cb887c9802d80eb0b332893bafa812298dbc39d7b7
+    REF v2018.10
+    SHA512 2f1164e321ceff9ae526cb2bae961147f52f56b35ea837c29ba0153f418a269056f469415ca0393dfb8fa5d916e92130aaccc61105d18e3f242820d13478eb33
     HEAD_REF master
 )
 
-if(VCPKG_LIBRARY_LINKAGE STREQUAL static)
-    set(BUILD_STATIC 1)
-else()
-    set(BUILD_STATIC 0)
-endif()
+string(COMPARE EQUAL "${VCPKG_LIBRARY_LINKAGE}" "static" BUILD_STATIC)
 
 # Handle features
 set(_COMPONENT_FLAGS "")
@@ -41,6 +37,8 @@ vcpkg_configure_cmake(
 
 vcpkg_install_cmake()
 
+vcpkg_fixup_cmake_targets(CONFIG_PATH share/cmake/MagnumExtras TARGET_PATH share/MagnumExtras)
+
 # Messages to the user
 if("ui" IN_LIST FEATURES)
     message(WARNING "It is recommended to install one of magnum-plugins[freetypefont,harfbuzzfont,stbtruetypefont] to have the UI library working out of the box")
@@ -49,18 +47,20 @@ endif()
 # Debug includes and share are the same as release
 file(REMOVE_RECURSE
     ${CURRENT_PACKAGES_DIR}/debug/include
-    ${CURRENT_PACKAGES_DIR}/debug/share)
+    ${CURRENT_PACKAGES_DIR}/debug/share
+)
 
 # Clean up empty directories
-if(NOT FEATURES)
+if("${FEATURES}" STREQUAL "core")
     file(REMOVE_RECURSE
         ${CURRENT_PACKAGES_DIR}/bin
         ${CURRENT_PACKAGES_DIR}/lib
-        ${CURRENT_PACKAGES_DIR}/debug)
+        ${CURRENT_PACKAGES_DIR}/debug
+    )
     set(VCPKG_POLICY_EMPTY_INCLUDE_FOLDER enabled)
 endif()
 
-if(VCPKG_LIBRARY_LINKAGE STREQUAL static)
+if(VCPKG_LIBRARY_LINKAGE STREQUAL "static")
    file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/bin)
    file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/bin)
 endif()

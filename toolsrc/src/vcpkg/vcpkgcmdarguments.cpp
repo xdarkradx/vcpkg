@@ -51,11 +51,29 @@ namespace vcpkg
         std::vector<std::string> v;
         for (int i = 1; i < argc; ++i)
         {
+            std::string arg;
 #if defined(_WIN32)
-            v.push_back(Strings::to_utf8(argv[i]));
+            arg = Strings::to_utf8(argv[i]);
 #else
-            v.push_back(argv[i]);
+            arg = argv[i];
 #endif
+            // Response file?
+            if (arg.size() > 0 && arg[0] == '@')
+            {
+                arg.erase(arg.begin());
+                const auto& fs = Files::get_real_filesystem();
+                auto lines = fs.read_lines(fs::u8path(arg));
+                if (!lines.has_value())
+                {
+                    System::println(System::Color::error, "Error: Could not open response file %s", arg);
+                    Checks::exit_fail(VCPKG_LINE_INFO);
+                }
+                std::copy(lines.get()->begin(), lines.get()->end(), std::back_inserter(v));
+            }
+            else
+            {
+                v.emplace_back(std::move(arg));
+            }
         }
 
         return VcpkgCmdArguments::create_from_arg_sequence(v.data(), v.data() + v.size());
@@ -126,12 +144,22 @@ namespace vcpkg
                 }
                 if (arg == "--featurepackages")
                 {
-                    GlobalState::feature_packages = true;
+                    parse_switch(true, "featurepackages", args.featurepackages);
                     continue;
                 }
                 if (arg == "--no-featurepackages")
                 {
-                    GlobalState::feature_packages = false;
+                    parse_switch(false, "featurepackages", args.featurepackages);
+                    continue;
+                }
+                if (arg == "--binarycaching")
+                {
+                    parse_switch(true, "binarycaching", args.binarycaching);
+                    continue;
+                }
+                if (arg == "--no-binarycaching")
+                {
+                    parse_switch(false, "binarycaching", args.binarycaching);
                     continue;
                 }
 

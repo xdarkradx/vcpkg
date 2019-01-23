@@ -1,19 +1,26 @@
 #header-only library
 include(vcpkg_common_functions)
-SET(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/args-master)
-vcpkg_download_distfile(ARCHIVE
-    URLS "https://github.com/Taywee/args/archive/master.zip"
-    FILENAME "args.zip"
-    SHA512 81751bfc86e15db1e5f245baa7df0464027b22b577c9de359e22dc4fe1dd550acfb116801b47d88b56d61b69a640c55757206f6f84977ace2fb02742b60ff216
+
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO Taywee/args
+    REF a82a9d6c94d7c58d8b96c65bdc1aba09a4f3e5db
+    SHA512 0a7caf231117827eb2dbbca3d51259c701c1b8da61518565e5cfe379edd03f34a2dac2d35cdba659042e19e7b3076ef4b6aa6e01d2f9b66db59d1672f9f18f12
+    HEAD_REF master
 )
-vcpkg_extract_source_archive(${ARCHIVE})
+
+vcpkg_configure_cmake(
+    SOURCE_PATH ${SOURCE_PATH}
+    PREFER_NINJA
+)
 
 # Put the licence file where vcpkg expects it
-file(COPY ${SOURCE_PATH}/license DESTINATION ${CURRENT_PACKAGES_DIR}/share/args)
-file(RENAME ${CURRENT_PACKAGES_DIR}/share/args/license ${CURRENT_PACKAGES_DIR}/share/args/copyright)
+file(COPY ${SOURCE_PATH}/LICENSE DESTINATION ${CURRENT_PACKAGES_DIR}/share/args)
+file(RENAME ${CURRENT_PACKAGES_DIR}/share/args/LICENSE ${CURRENT_PACKAGES_DIR}/share/args/copyright)
 
 # Copy the args header files
-file(INSTALL ${SOURCE_PATH} DESTINATION ${CURRENT_PACKAGES_DIR}/include FILES_MATCHING PATTERN "*.hxx")
+file(INSTALL ${SOURCE_PATH}/ DESTINATION ${CURRENT_PACKAGES_DIR}/include FILES_MATCHING PATTERN "*.hxx")
 
-file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/include/args-master/examples ${CURRENT_PACKAGES_DIR}/include/args-master/test)
+file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/include/examples ${CURRENT_PACKAGES_DIR}/include/test)
+
 vcpkg_copy_pdbs()

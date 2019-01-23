@@ -8,24 +8,20 @@ function(qt_modular_library NAME HASH)
         )
     endif()
 
-    if(VCPKG_LIBRARY_LINKAGE STREQUAL static)
-        message(FATAL_ERROR "Qt5 doesn't currently support static builds. Please use a dynamic triplet instead.")
-    endif()
+    set(MAJOR_MINOR 5.12)
+    set(FULL_VERSION ${MAJOR_MINOR}.0)
+    set(ARCHIVE_NAME "${NAME}-everywhere-src-${FULL_VERSION}.tar.xz")
 
-    set(SRCDIR_NAME "${NAME}-5.9.2")
-    set(ARCHIVE_NAME "${NAME}-opensource-src-5.9.2")
-    set(ARCHIVE_EXTENSION ".tar.xz")
-
-    set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/${SRCDIR_NAME})
     vcpkg_download_distfile(ARCHIVE_FILE
-        URLS "http://download.qt.io/official_releases/qt/5.9/5.9.2/submodules/${ARCHIVE_NAME}${ARCHIVE_EXTENSION}"
-        FILENAME ${SRCDIR_NAME}${ARCHIVE_EXTENSION}
+        URLS "http://download.qt.io/official_releases/qt/${MAJOR_MINOR}/${FULL_VERSION}/submodules/${ARCHIVE_NAME}"
+        FILENAME ${ARCHIVE_NAME}
         SHA512 ${HASH}
     )
-    vcpkg_extract_source_archive(${ARCHIVE_FILE})
-    if (EXISTS ${CURRENT_BUILDTREES_DIR}/src/${ARCHIVE_NAME})
-        file(RENAME ${CURRENT_BUILDTREES_DIR}/src/${ARCHIVE_NAME} ${CURRENT_BUILDTREES_DIR}/src/${SRCDIR_NAME})
-    endif()
+    vcpkg_extract_source_archive_ex(
+        OUT_SOURCE_PATH SOURCE_PATH
+        ARCHIVE "${ARCHIVE_FILE}"
+        REF ${FULL_VERSION}
+    )
 
     # This fixes issues on machines with default codepages that are not ASCII compatible, such as some CJK encodings
     set(ENV{_CL_} "/utf-8")
@@ -44,7 +40,7 @@ function(qt_modular_library NAME HASH)
 
     string(SUBSTRING "${NATIVE_INSTALLED_DIR}" 2 -1 INSTALLED_DIR_WITHOUT_DRIVE)
     string(SUBSTRING "${NATIVE_PACKAGES_DIR}" 2 -1 PACKAGES_DIR_WITHOUT_DRIVE)
-    
+
     #Configure debug+release
     vcpkg_configure_qmake(SOURCE_PATH ${SOURCE_PATH})
 
@@ -53,7 +49,7 @@ function(qt_modular_library NAME HASH)
     #Fix the cmake files if they exist
     if(EXISTS ${RELEASE_DIR}/lib/cmake)
         vcpkg_execute_required_process(
-            COMMAND ${PYTHON2} ${_qt5base_port_dir}/fixcmake.py
+            COMMAND ${PYTHON2} ${_qt5base_port_dir}/fixcmake.py ${PORT}
             WORKING_DIRECTORY ${RELEASE_DIR}/lib/cmake
             LOGNAME fix-cmake
         )
@@ -61,9 +57,11 @@ function(qt_modular_library NAME HASH)
 
     file(GLOB_RECURSE MAKEFILES ${DEBUG_DIR}/*Makefile* ${RELEASE_DIR}/*Makefile*)
 
-    #Set the correct install directory to packages
     foreach(MAKEFILE ${MAKEFILES})
-        vcpkg_replace_string(${MAKEFILE} "(INSTALL_ROOT)${INSTALLED_DIR_WITHOUT_DRIVE}" "(INSTALL_ROOT)${PACKAGES_DIR_WITHOUT_DRIVE}")
+        file(READ "${MAKEFILE}" _contents)
+        #Set the correct install directory to packages
+        string(REPLACE "(INSTALL_ROOT)${INSTALLED_DIR_WITHOUT_DRIVE}" "(INSTALL_ROOT)${PACKAGES_DIR_WITHOUT_DRIVE}" _contents "${_contents}")
+        file(WRITE "${MAKEFILE}" "${_contents}")
     endforeach()
 
     #Install the module files
@@ -77,6 +75,16 @@ function(qt_modular_library NAME HASH)
     if(EXISTS ${CURRENT_PACKAGES_DIR}/debug/lib/cmake)
         file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/lib/cmake)
     endif()
+
+    file(GLOB_RECURSE PRL_FILES "${CURRENT_PACKAGES_DIR}/lib/*.prl" "${CURRENT_PACKAGES_DIR}/debug/lib/*.prl")
+    file(TO_CMAKE_PATH "${CURRENT_INSTALLED_DIR}/lib" CMAKE_RELEASE_LIB_PATH)
+    file(TO_CMAKE_PATH "${CURRENT_INSTALLED_DIR}/debug/lib" CMAKE_DEBUG_LIB_PATH)
+    foreach(PRL_FILE IN LISTS PRL_FILES)
+        file(READ "${PRL_FILE}" _contents)
+        string(REPLACE "${CMAKE_RELEASE_LIB_PATH}" "\$\$[QT_INSTALL_LIBS]" _contents "${_contents}")
+        string(REPLACE "${CMAKE_DEBUG_LIB_PATH}" "\$\$[QT_INSTALL_LIBS]" _contents "${_contents}")
+        file(WRITE "${PRL_FILE}" "${_contents}")
+    endforeach()
 
     file(GLOB RELEASE_LIBS "${CURRENT_PACKAGES_DIR}/lib/*")
     if(NOT RELEASE_LIBS)
@@ -122,6 +130,8 @@ function(qt_modular_library NAME HASH)
         set(LICENSE_PATH "${SOURCE_PATH}/LICENSE.GPLv3")
     elseif(EXISTS "${SOURCE_PATH}/LICENSE.GPL3")
         set(LICENSE_PATH "${SOURCE_PATH}/LICENSE.GPL3")
+    elseif(EXISTS "${SOURCE_PATH}/LICENSE.GPL3-EXCEPT")
+        set(LICENSE_PATH "${SOURCE_PATH}/LICENSE.GPL3-EXCEPT")
     endif()
     file(INSTALL ${LICENSE_PATH} DESTINATION ${CURRENT_PACKAGES_DIR}/share/${PORT} RENAME copyright)
 

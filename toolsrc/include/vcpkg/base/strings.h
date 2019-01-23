@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vcpkg/base/cstringview.h>
+#include <vcpkg/base/stringliteral.h>
 
 #include <vector>
 
@@ -34,9 +35,13 @@ namespace vcpkg::Strings
         return details::format_internal(fmtstr, to_printf_arg(to_printf_arg(args))...);
     }
 
+#if defined(_WIN32)
     std::wstring to_utf16(const CStringView& s);
 
-    std::string to_utf8(const CWStringView& w);
+    std::string to_utf8(const wchar_t* w);
+#endif
+
+    std::string escape_string(const CStringView& s, char char_to_escape, char escape_char);
 
     std::string::const_iterator case_insensitive_ascii_find(const std::string& s, const std::string& pattern);
 
@@ -44,9 +49,12 @@ namespace vcpkg::Strings
 
     bool case_insensitive_ascii_equals(const CStringView left, const CStringView right);
 
-    std::string ascii_to_lowercase(const std::string& input);
+    std::string ascii_to_lowercase(std::string s);
+
+    std::string ascii_to_uppercase(std::string s);
 
     bool case_insensitive_ascii_starts_with(const std::string& s, const std::string& pattern);
+    bool ends_with(const std::string& s, StringLiteral pattern);
 
     template<class Container, class Transformer>
     std::string join(const char* delimiter, const Container& v, Transformer transformer)

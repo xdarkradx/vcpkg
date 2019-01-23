@@ -3,23 +3,21 @@ include(vcpkg_common_functions)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO emweb/wt
-    REF 3.3.7
-    SHA512 f179b42eedcfd2e61f26ef92c6aad40c55c76c9a688269c4d5bd55dd48381073d6269d9c2ab305f15ef455616d48183a3fc0ba08c740a8e18318a2ad2fb13826
+    REF 4.0.5
+    SHA512 5513b428bfd3e778726c947606677f3e0774b38e640e61cd94906a2e0c75d204a68072b54ddeb3614a7ba08f5668e6eb3a96d9c8df3744b09dc36ad9be12d924
     HEAD_REF master
-)
-
-vcpkg_apply_patches(
-    SOURCE_PATH ${SOURCE_PATH}
     PATCHES
-        ${CMAKE_CURRENT_LIST_DIR}/add-disable-boost-autolink-option.patch
-        ${CMAKE_CURRENT_LIST_DIR}/guard-NO_ERROR.patch
-        ${CMAKE_CURRENT_LIST_DIR}/boost-1.66.patch
+        0001-boost-1.66.patch
+        0002-link-glew.patch
+        0003-disable-boost-autolink.patch
+        0004-link-ssl.patch
 )
 
 string(COMPARE EQUAL "${VCPKG_LIBRARY_LINKAGE}" "dynamic" SHARED_LIBS)
 
 vcpkg_configure_cmake(
     SOURCE_PATH ${SOURCE_PATH}
+    PREFER_NINJA
     OPTIONS
         -DSHARED_LIBS=${SHARED_LIBS}
         -DBOOST_DYNAMIC=ON
@@ -38,12 +36,19 @@ vcpkg_configure_cmake(
         -DENABLE_OPENGL=ON
 
         -DUSE_SYSTEM_SQLITE3=ON
+        -DUSE_SYSTEM_GLEW=ON
+
+        -DCMAKE_INSTALL_DIR=share
 )
 vcpkg_install_cmake()
 
+vcpkg_fixup_cmake_targets(CONFIG_PATH share/wt)
+
 # There is no way to suppress installation of the headers and resource files in debug build.
-file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/include)
-file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/share)
+file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/include ${CURRENT_PACKAGES_DIR}/debug/share)
+
+file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/var)
+file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/var)
 
 file(INSTALL ${SOURCE_PATH}/LICENSE DESTINATION ${CURRENT_PACKAGES_DIR}/share/wt RENAME copyright)
 vcpkg_copy_pdbs()

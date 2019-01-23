@@ -7,6 +7,13 @@
 #include <vcpkg/install.h>
 #include <vcpkg/remove.h>
 
+// Write environment variable names as %VARIABLE% on Windows and $VARIABLE in *nix
+#ifdef _WIN32
+#define ENVVAR(VARNAME) "%%" #VARNAME "%%"
+#else
+#define ENVVAR(VARNAME) "$" #VARNAME
+#endif
+
 namespace vcpkg::Help
 {
     struct Topic
@@ -93,25 +100,23 @@ namespace vcpkg::Help
             "%s" // Integration help
             "\n"
             "  vcpkg export <pkg>... [opt]...  Exports a package\n"
-            "  vcpkg edit <pkg>                Open up a port for editing (uses %%EDITOR%%, default 'code')\n"
+            "  vcpkg edit <pkg>                Open up a port for editing (uses " ENVVAR(EDITOR) ", default 'code')\n"
             "  vcpkg import <pkg>              Import a pre-built library\n"
             "  vcpkg create <pkg> <url>\n"
             "             [archivename]        Create a new package\n"
             "  vcpkg owns <pat>                Search for files in installed packages\n"
-            "  vcpkg cache                     List cached compiled packages\n"
+            "  vcpkg env                       Creates a clean shell environment for development or compiling.\n"
             "  vcpkg version                   Display version information\n"
             "  vcpkg contact                   Display contact information to send feedback\n"
             "\n"
-            //"internal commands:\n"
-            //"  --check-build-deps <controlfile>\n"
-            //"  --create-binary-control <controlfile>\n"
-            //"\n"
             "Options:\n"
             "  --triplet <t>                   Specify the target architecture triplet.\n"
-            "                                  (default: %%VCPKG_DEFAULT_TRIPLET%%, see 'vcpkg help triplet')\n"
+            "                                  (default: " ENVVAR(VCPKG_DEFAULT_TRIPLET) ", see 'vcpkg help triplet')\n"
             "\n"
             "  --vcpkg-root <path>             Specify the vcpkg root directory\n"
-            "                                  (default: %%VCPKG_ROOT%%)\n"
+            "                                  (default: " ENVVAR(VCPKG_ROOT) ")\n"
+            "\n"
+            "  @response_file                  Specify a response file to provide additional parameters\n"
             "\n"
             "For more help (including examples) see the accompanying README.md.",
             Commands::Integrate::INTEGRATE_COMMAND_HELPSTRING);

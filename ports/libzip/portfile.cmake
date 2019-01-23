@@ -2,16 +2,10 @@ include(vcpkg_common_functions)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO nih-at/libzip
-    REF rel-1-4-0
-    SHA512 3d8c5e64c567d2b91670ea041228d74cc8415116dfeb5c9bcf587ab817618eace668c5171122eeccf2a5f25242c2439c5f60b361f99a06274ab58aea720fe0bb
-)
-
-# Patch cmake and configuration to allow static builds
-vcpkg_apply_patches(
-    SOURCE_PATH ${SOURCE_PATH}
-    PATCHES
-        "${CMAKE_CURRENT_LIST_DIR}/cmake_dont_build_more_than_needed.patch"
-        "${CMAKE_CURRENT_LIST_DIR}/fix-attribute.patch"
+    REF rel-1-5-1
+    SHA512 778f438f6354f030656baa5497b3154ad8fb764011d2a6925136f32e06dc0dcd1ed93fe05dbf7be619004a68cdabe5e34a83b988c1501ed67e9cfa4fa540350f
+    HEAD_REF master
+    PATCHES cmake_dont_build_more_than_needed.patch
 )
 
 vcpkg_configure_cmake(
@@ -21,13 +15,13 @@ vcpkg_configure_cmake(
 
 vcpkg_install_cmake()
 
-# Move zipconf.h to include and remove include directories from lib
+# Remove include directories from lib
 file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/lib/libzip ${CURRENT_PACKAGES_DIR}/debug/lib/libzip)
 
 # Remove debug include
 file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/include)
 
 # Copy copright information
-file(INSTALL ${CMAKE_CURRENT_LIST_DIR}/LICENSE DESTINATION ${CURRENT_PACKAGES_DIR}/share/libzip RENAME copyright)
+file(INSTALL ${SOURCE_PATH}/LICENSE DESTINATION ${CURRENT_PACKAGES_DIR}/share/libzip RENAME copyright)
 
 vcpkg_copy_pdbs()

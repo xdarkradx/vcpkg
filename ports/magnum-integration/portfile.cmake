@@ -2,16 +2,12 @@ include(vcpkg_common_functions)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO mosra/magnum-integration
-    REF v2018.02
-    SHA512 b2db442d5e29c117ee30ee2c37f5087c3d360158a52eb6bc19e5c1a0388a0ec1338c53e3fdad618bb6f4aba5d88fe10d20bb1539e5f21a309b8f06f2e195279c
+    REF v2018.10
+    SHA512 2743eb7ee377350e85c1112f5c81850922748f50dc2d5409ccb05bec2b3246c91b8e149891a72a8319125a9843b408fd8254efaffaed2100a425e3e7ef426bbe
     HEAD_REF master
 )
 
-if(VCPKG_LIBRARY_LINKAGE STREQUAL static)
-    set(BUILD_STATIC 1)
-else()
-    set(BUILD_STATIC 0)
-endif()
+string(COMPARE EQUAL "${VCPKG_LIBRARY_LINKAGE}" "static" BUILD_STATIC)
 
 # Handle features
 set(_COMPONENT_FLAGS "")
@@ -44,14 +40,16 @@ vcpkg_install_cmake()
 # Debug includes and share are the same as release
 file(REMOVE_RECURSE
     ${CURRENT_PACKAGES_DIR}/debug/include
-    ${CURRENT_PACKAGES_DIR}/debug/share)
+    ${CURRENT_PACKAGES_DIR}/debug/share
+)
 
 # Clean up empty directories
-if(NOT FEATURES)
+if("${FEATURES}" STREQUAL "core")
     file(REMOVE_RECURSE
         ${CURRENT_PACKAGES_DIR}/bin
         ${CURRENT_PACKAGES_DIR}/lib
-        ${CURRENT_PACKAGES_DIR}/debug)
+        ${CURRENT_PACKAGES_DIR}/debug
+    )
     set(VCPKG_POLICY_EMPTY_INCLUDE_FOLDER enabled)
 endif()
 

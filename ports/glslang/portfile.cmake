@@ -1,20 +1,19 @@
 include(vcpkg_common_functions)
-if(VCPKG_LIBRARY_LINKAGE STREQUAL dynamic)
-  message(WARNING "Dynamic not supported. Building static")
-  set(VCPKG_LIBRARY_LINKAGE "static")
-endif()
+
+vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
 
 vcpkg_from_github(
   OUT_SOURCE_PATH SOURCE_PATH
   REPO KhronosGroup/glslang
-  REF 3a21c880500eac21cdf79bef5b80f970a55ac6af
-  SHA512 a6b2f589d432015d3830027dee377350529bec9c339a8de24aa52bab5ca52b3e17e2163d3bd1a7d91f7a08c446ebfe86d64bbbbae5a23af831d2e0cb724f7418
+  REF b5b5f918c6b72d7cf2ee73641cc6c6ddb211ca70
+  SHA512 ec0f7a23fa60457a481c7b3acf4c127c3bf898d23655d346aeafb304f74e798d632c83d676873f2c764d241de6dc4392cff8d6ce0ee509a4b74ee2233b01c008
   HEAD_REF master
 )
 
 vcpkg_configure_cmake(
   SOURCE_PATH ${SOURCE_PATH}
   PREFER_NINJA
+  OPTIONS -DCMAKE_DEBUG_POSTFIX=d
 )
 
 vcpkg_install_cmake()
