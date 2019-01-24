@@ -112,7 +112,7 @@ function(vcpkg_configure_cmake)
     elseif(VCPKG_TARGET_ARCHITECTURE STREQUAL "arm64" AND VCPKG_PLATFORM_TOOLSET MATCHES "v141")
         set(GENERATOR "Visual Studio 15 2017")
         set(ARCH "ARM64")
-    else()
+
 	
     elseif(VCPKG_TARGET_ARCHITECTURE MATCHES "x86" AND VCPKG_PLATFORM_TOOLSET MATCHES "v142")
         set(GENERATOR "Visual Studio 16 2019")
