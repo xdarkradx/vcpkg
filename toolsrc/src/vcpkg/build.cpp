@@ -473,10 +473,22 @@ namespace vcpkg::Build
 
         abi_tag_entries.emplace_back(AbiEntry{"cmake", paths.get_tool_version(Tools::CMAKE)});
 
-        abi_tag_entries.emplace_back(
-            AbiEntry{"portfile", vcpkg::Hash::get_file_hash(fs, config.port_dir / "portfile.cmake", "SHA1")});
-        abi_tag_entries.emplace_back(
-            AbiEntry{"control", vcpkg::Hash::get_file_hash(fs, config.port_dir / "CONTROL", "SHA1")});
+        // the order of recursive_directory_iterator is undefined so save the names to sort
+        std::vector<fs::path> port_files;
+        for (auto &port_file : fs::stdfs::recursive_directory_iterator(config.port_dir))
+        {
+            if (fs::is_regular_file(status(port_file)))
+            {
+                port_files.push_back(port_file);
+            }
+        }
+
+        std::sort(port_files.begin(), port_files.end());
+
+        for(auto & port_file: port_files)
+        {
+            abi_tag_entries.emplace_back(AbiEntry{ "PORTFILE:" + port_file.filename().string(), vcpkg::Hash::get_file_hash(fs, port_file, "SHA1") });
+        }
 
         abi_tag_entries.emplace_back(AbiEntry{"vcpkg_fixup_cmake_targets", "1"});
 
