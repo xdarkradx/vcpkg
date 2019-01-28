@@ -473,21 +473,31 @@ namespace vcpkg::Build
 
         abi_tag_entries.emplace_back(AbiEntry{"cmake", paths.get_tool_version(Tools::CMAKE)});
 
-        // the order of recursive_directory_iterator is undefined so save the names to sort
-        std::vector<fs::path> port_files;
+		// If there is an unusually large number of files in the port then
+		// somthing suspisious is going on.  Rather than hash all of them
+		// just mark the port as no-hash
+		int breakout_counter = 0;
+		const int max_port_file_count = 100;
         for (auto &port_file : fs::stdfs::recursive_directory_iterator(config.port_dir))
         {
             if (fs::is_regular_file(status(port_file)))
             {
-                port_files.push_back(port_file);
+#if __cplusplus >= 201703L // c++17
+				std::string key = vcpkg::Hash::get_string_hash(fs::relative(port_file.path(), config.port_dir)).string(), "SHA1");
+#else
+				// Unfortunatly fs::relative and fs::proximate are not part of the filesystem ts.
+				// approximate it by using filename instead.  This will break down if there are two files with the same name under the
+				// port directory.
+				std::string key = vcpkg::Hash::get_string_hash(port_file.path().filename().string(), "SHA1");
+#endif
+				abi_tag_entries.emplace_back(AbiEntry{ "PORTFILE_" + key, vcpkg::Hash::get_file_hash(fs, port_file, "SHA1") });
+
+				if (++breakout_counter > max_port_file_count)
+				{
+					abi_tag_entries.emplace_back(AbiEntry{ "no_hash_max_portfile", "" });
+					break;
+				}
             }
-        }
-
-        std::sort(port_files.begin(), port_files.end());
-
-        for(auto & port_file: port_files)
-        {
-            abi_tag_entries.emplace_back(AbiEntry{ "PORTFILE:" + port_file.filename().string(), vcpkg::Hash::get_file_hash(fs, port_file, "SHA1") });
         }
 
         abi_tag_entries.emplace_back(AbiEntry{"vcpkg_fixup_cmake_targets", "1"});
