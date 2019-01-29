@@ -4,21 +4,27 @@ if (VCPKG_LIBRARY_LINKAGE STREQUAL dynamic AND VCPKG_CRT_LINKAGE STREQUAL static
 endif()
 
 set(PYTHON_VERSION_MAJOR  3)
-set(PYTHON_VERSION_MINOR  6)
-set(PYTHON_VERSION_PATCH  4)
+set(PYTHON_VERSION_MINOR  7)
+set(PYTHON_VERSION_PATCH  2)
 set(PYTHON_VERSION        ${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}.${PYTHON_VERSION_PATCH})
 
 include(vcpkg_common_functions)
+
+set(PATCHES)
+if (VCPKG_LIBRARY_LINKAGE STREQUAL static)
+    set(PATCHES 0001-Static-library.patch)
+endif()
+if (VCPKG_CRT_LINKAGE STREQUAL static)
+    set(PATCHES 0002-Static-CRT.patch)
+endif()
 
 vcpkg_from_github(
     OUT_SOURCE_PATH TEMP_SOURCE_PATH
     REPO python/cpython
     REF v${PYTHON_VERSION}
-    SHA512 32cca5e344ee66f08712ab5533e5518f724f978ec98d985f7612d0bd8d7f5cac25625363c9eead192faf1806d4ea3393515f72ba962a2a0bed26261e56d8c637
+    SHA512 5a07f61248b757bba0688d9022f199d964af1372d02ffd05bb04d86339b4cb8b12d26246627f6e277e0b7ab385cdfdf337596a84a9ab0476e8cd0c3864943a8b
     HEAD_REF master
-    PATCHES
-        ${CMAKE_CURRENT_LIST_DIR}/0004-Fix-iomodule-for-RS4-SDK.patch
-        ${CMAKE_CURRENT_LIST_DIR}/0005-Fix-DefaultWindowsSDKVersion.patch
+    PATCHES ${PATCHES}
 )
 
 # We need per-triplet directories because we need to patch the project files differently based on the linkage
@@ -26,21 +32,6 @@ vcpkg_from_github(
 set(SOURCE_PATH "${TEMP_SOURCE_PATH}-Lib-${VCPKG_LIBRARY_LINKAGE}-crt-${VCPKG_CRT_LINKAGE}")
 file(REMOVE_RECURSE ${SOURCE_PATH})
 file(RENAME "${TEMP_SOURCE_PATH}" ${SOURCE_PATH})
-
-if (VCPKG_LIBRARY_LINKAGE STREQUAL static)
-    vcpkg_apply_patches(
-        SOURCE_PATH ${SOURCE_PATH}
-        PATCHES
-            ${CMAKE_CURRENT_LIST_DIR}/0001-Static-library.patch
-    )
-endif()
-if (VCPKG_CRT_LINKAGE STREQUAL static)
-    vcpkg_apply_patches(
-        SOURCE_PATH ${SOURCE_PATH}
-        PATCHES
-            ${CMAKE_CURRENT_LIST_DIR}/0002-Static-CRT.patch
-    )
-endif()
 
 if (VCPKG_TARGET_ARCHITECTURE MATCHES "x86")
     set(BUILD_ARCH "Win32")
