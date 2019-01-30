@@ -1,0 +1,23 @@
+--- a/CMakeLists.txt	2019-02-08 00:16:04.491314600 -0600
++++ b/CMakeLists.txt	2019-02-08 00:17:03.776848700 -0600
+@@ -289,6 +289,8 @@ add_prefix(MP_SOURCES src/
+ add_mp_library(mp ${MP_HEADERS} ${MP_SOURCES} ${MP_EXPR_INFO_FILE}
+   COMPILE_DEFINITIONS MP_DATE=${MP_DATE} MP_SYSINFO="${MP_SYSINFO}"
+   INCLUDE_DIRECTORIES src OBJECT_LIBRARIES format)
++set_property(TARGET mp PROPERTY
++  INTERFACE_INCLUDE_DIRECTORIES $<INSTALL_INTERFACE:include>)
+ set_target_properties(mp PROPERTIES
+   VERSION ${MP_VERSION} SOVERSION ${MP_VERSION_MAJOR})
+ 
+@@ -385,5 +387,10 @@ if(BUILD_TESTING)
+ endif()
+ 
+ install(DIRECTORY include/mp DESTINATION include)
+-install(TARGETS mp DESTINATION lib RUNTIME DESTINATION bin)
++install(TARGETS mp EXPORT unofficial-mp-targets
++  DESTINATION lib RUNTIME DESTINATION bin)
+ install(FILES LICENSE.rst DESTINATION share/mp)
++install(EXPORT unofficial-mp-targets
++  FILE unofficial-mp-config.cmake
++  NAMESPACE unofficial::mp::
++  DESTINATION share/unofficial-mp)
