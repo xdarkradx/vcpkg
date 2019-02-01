@@ -504,6 +504,10 @@ namespace vcpkg::Build
                 // which will give a stable ordering and better names in the key entry.
                 // this is not available in the filesystem TS so instead number the files for the key.
                 std::string key = Strings::format("file_%03d", counter++);
+                if (GlobalState::debugging)
+                {
+                    System::println("[DEBUG] mapping %s from %s", key, port_file.string());
+                }
                 abi_tag_entries.emplace_back(AbiEntry{ key, vcpkg::Hash::get_file_hash(fs, port_file, "SHA1") });
             }
         }
