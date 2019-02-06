@@ -12,8 +12,8 @@ endif()
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO Microsoft/DirectXMesh
-    REF may2018b
-    SHA512 97bc498c4e72c6ecdd579772f978da67c671a79132555a8505636df775cca4659944a6a05e0e30b6ce3c28ee7bf5dab0269aa7db233b1dbc79e2aa1d998749a9
+    REF nov2018
+    SHA512 b1abeabd81c7d6c12adfea1ca8d563aa7c22ba1a64aa7a49b7839c0788922cec604a041dddbd3aca6a3b7c8412b1117dfee9c1163862de10757a7747669017ed
     HEAD_REF master
 )
 
