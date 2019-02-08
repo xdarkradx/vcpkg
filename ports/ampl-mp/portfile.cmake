@@ -9,6 +9,7 @@ vcpkg_from_github(
     SHA512 eca6aec83882144a28a6f29f81c11fb06ad4b3fa68ea6355d28155f1831a9041b279231bfa8c6e7438d2a40c0c2e12f8aba5ed9e6422336e1e9b82572cb2c8e5
     HEAD_REF master
     PATCHES
+    fix-dl.patch
     workaround-msvc-optimizer-ice.patch
     install-targets.patch
 )
