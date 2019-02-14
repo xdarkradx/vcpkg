@@ -7,8 +7,8 @@ include(vcpkg_common_functions)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO Azure/azure-storage-cpp
-    REF v5.1.1
-    SHA512 e5983d767681cf82a68af3c983a83515a2a7a3b5bf2ffbadcd2992dbcdf213bb322f8d0c4369a4c729ac7536e3e0f52e44cde012cbe1f9464df3ad901f635b6a
+    REF v6.0.0
+    SHA512 e568c3c3fd10a688b4d2491987998b1e133e54853fbf94a238a0cc3955dfd4d68bedf79a0e30bb5f30e8dd3c2bf41999d7c8658571b7dca9a4058140258ca314
     HEAD_REF master
     PATCHES
         ${CMAKE_CURRENT_LIST_DIR}/pplx-do-while.patch
