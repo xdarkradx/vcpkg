@@ -7,7 +7,7 @@ vcpkg_from_github(
     SHA512 235ebe677d1dd6a252e1c57d7262297b2923c294a7fc381b35da20be4bed53b0b609138ba476d67a9ea6aa912fa773fdda3562beddcd736f3a3f48f0ce8396d7
     HEAD_REF development
     PATCHES
-      "${CMAKE_CURRENT_LIST_DIR}/fix_libusb.patch"
+      "fix_libusb.patch"
 )
 
 string(COMPARE EQUAL "${VCPKG_LIBRARY_LINKAGE}" "dynamic" BUILD_LIBRARY_LINKAGE)
