@@ -717,34 +717,30 @@ namespace vcpkg::Build
             }
             else if (result.code == BuildResult::BUILD_FAILED || result.code == BuildResult::POST_BUILD_CHECKS_FAILED)
             {
-                // Build failed, so store tombstone archive
-#if 0
-                // Collect a list of logs to archive and move to temporary directory
-                const auto tmp_log_path = paths.buildtrees / spec.name() / "logs";
-                const auto tmp_log_path_destination = tmp_log_path / spec.name();
-                const auto tmp_failure_zip = paths.buildtrees / spec.name() / "failure_logs.zip";
-                fs.create_directories(tmp_log_path_destination, ec);
-
-                for (auto &log_file : fs::stdfs::directory_iterator(paths.buildtrees / spec.name()))
+                if (!fs.exists(archive_tombstone_path))
                 {
-                    if (log_file.path().extension() == ".log")
+                    // Build failed, store all failure logs in the tombstone.
+                    const auto tmp_log_path = paths.buildtrees / spec.name() / "tmp_failure_logs";
+                    const auto tmp_log_path_destination = tmp_log_path / spec.name();
+                    const auto tmp_failure_zip = paths.buildtrees / spec.name() / "failure_logs.zip";
+                    fs.create_directories(tmp_log_path_destination, ec);
+
+                    for (auto &log_file : fs::stdfs::directory_iterator(paths.buildtrees / spec.name()))
                     {
-                        //System::Println("Saving log %s", log_file.path().string());
-                        fs.copy_file(log_file.path(), tmp_log_path_destination, fs::stdfs::copy_options::none, ec);
+                        if (log_file.path().extension() == ".log")
+                        {
+                            fs.copy_file(log_file.path(), tmp_log_path_destination / log_file.path().filename(), fs::stdfs::copy_options::none, ec);
+                        }
                     }
+
+                    compress_directory(paths, tmp_log_path, paths.buildtrees / spec.name() / "failure_logs.zip");
+
+                    fs.create_directories(archive_tombstone_path.parent_path(), ec);
+                    fs.rename_or_copy(tmp_failure_zip, archive_tombstone_path, ".tmp", ec);
+
+                    // clean up temporary directory
+                    fs.remove_all(tmp_log_path, ec);
                 }
-
-                // Need this function call, but the generic version of it
-                compress_directory(paths, tmp_log_path, paths.buildtrees / spec.name() / "failure_logs.zip");
-
-                // compress the logs and copy to destination
-                fs.create_directories(archive_tombstone_path.parent_path(), ec);
-                fs.rename_or_copy(archive_tombstone_path, tmp_failure_zip, ".tmp", ec);
-
-                // remove temporary directory
-#endif
-                fs.create_directories(archive_tombstone_path.parent_path(), ec);
-                fs.write_contents(archive_tombstone_path, "", ec);
             }
 
             return result;
