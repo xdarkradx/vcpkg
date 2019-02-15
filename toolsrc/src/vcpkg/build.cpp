@@ -720,7 +720,7 @@ namespace vcpkg::Build
                 // Build failed, so store tombstone archive
 #if 0
                 // Collect a list of logs to archive and move to temporary directory
-                const auto tmp_log_path = paths.buildtrees / spec.name() / "logs"; // (spec.triplet().to_string() + ".zip");
+                const auto tmp_log_path = paths.buildtrees / spec.name() / "logs";
                 const auto tmp_log_path_destination = tmp_log_path / spec.name();
                 const auto tmp_failure_zip = paths.buildtrees / spec.name() / "failure_logs.zip";
                 fs.create_directories(tmp_log_path_destination, ec);
@@ -730,7 +730,7 @@ namespace vcpkg::Build
                     if (log_file.path().extension() == ".log")
                     {
                         //System::Println("Saving log %s", log_file.path().string());
-                        fs.copy_file(log_file.path(), tmp_log_path_destination, fs::stdfs::copy_options::none, ec); 
+                        fs.copy_file(log_file.path(), tmp_log_path_destination, fs::stdfs::copy_options::none, ec);
                     }
                 }
 
