@@ -719,9 +719,9 @@ namespace vcpkg::Install
         return nullptr;
     }
 
-    std::string InstallSummary::xunit_result(const PackageSpec& spec, Chrono::ElapsedTime time, BuildResult code)
+    std::string InstallSummary::xunit_result(const PackageSpec& spec, Chrono::ElapsedTime time, BuildResult code, std::string abi_tag)
     {
-        std::string inner_block;
+        std::string message_block;
         const char* result_string = "";
         switch (code)
         {
@@ -729,24 +729,31 @@ namespace vcpkg::Install
             case BuildResult::FILE_CONFLICTS:
             case BuildResult::BUILD_FAILED:
                 result_string = "Fail";
-                inner_block = Strings::format("<failure><message><![CDATA[%s]]></message></failure>", to_string(code));
+                message_block = Strings::format("<failure><message><![CDATA[%s]]></message></failure>", to_string(code));
                 break;
             case BuildResult::EXCLUDED:
             case BuildResult::CASCADED_DUE_TO_MISSING_DEPENDENCIES:
                 result_string = "Skip";
-                inner_block = Strings::format("<reason><![CDATA[%s]]></reason>", to_string(code));
+                message_block = Strings::format("<reason><![CDATA[%s]]></reason>", to_string(code));
                 break;
             case BuildResult::SUCCEEDED: result_string = "Pass"; break;
             default: Checks::exit_fail(VCPKG_LINE_INFO);
         }
 
-        return Strings::format(R"(<test name="%s" method="%s" time="%lld" result="%s">%s</test>)"
+        std::string traits_block;
+        if (abi_tag != "") // only adding if there is a known abi tag
+        {
+            traits_block = Strings::format(R"(<traits><trait name=abi_tag value="%s"></trait></traits>)", abi_tag);
+        }
+
+        return Strings::format(R"(<test name="%s" method="%s" time="%lld" result="%s">%s%s</test>)"
                                "\n",
                                spec,
                                spec,
                                time.as<std::chrono::seconds>().count(),
                                result_string,
-                               inner_block);
+                               traits_block,
+                               message_block);
     }
 
     std::string InstallSummary::xunit_results() const

@@ -57,19 +57,19 @@ namespace vcpkg::Commands::CI
         std::vector<FullPackageSpec> unknown;
         std::map<PackageSpec, Build::BuildResult> known;
         std::map<PackageSpec, std::vector<std::string>> features;
+        std::map<PackageSpec, std::string> abi_tag_map;
     };
 
-    static UnknownCIPortsResults find_unknown_ports_for_ci(const VcpkgPaths& paths,
+    static std::unique_ptr<UnknownCIPortsResults> find_unknown_ports_for_ci(const VcpkgPaths& paths,
                                                            const std::set<std::string>& exclusions,
                                                            const Dependencies::PortFileProvider& provider,
                                                            const std::vector<FeatureSpec>& fspecs,
                                                            const bool purge_tombstones)
     {
-        UnknownCIPortsResults ret;
+        auto ret = std::make_unique<UnknownCIPortsResults>();
 
         auto& fs = paths.get_filesystem();
 
-        std::map<PackageSpec, std::string> abi_tag_map;
         std::set<PackageSpec> will_fail;
 
         const Build::BuildPackageOptions build_options = {
@@ -103,9 +103,9 @@ namespace vcpkg::Commands::CI
 
                     auto dependency_abis =
                         Util::fmap(p->computed_dependencies, [&](const PackageSpec& spec) -> Build::AbiEntry {
-                            auto it = abi_tag_map.find(spec);
+                            auto it = ret->abi_tag_map.find(spec);
 
-                            if (it == abi_tag_map.end())
+                            if (it == ret->abi_tag_map.end())
                                 return {spec.name(), ""};
                             else
                                 return {spec.name(), it->second};
@@ -118,13 +118,13 @@ namespace vcpkg::Commands::CI
                     if (auto tag_and_file = maybe_tag_and_file.get())
                     {
                         abi = tag_and_file->tag;
-                        abi_tag_map.emplace(p->spec, abi);
+                        ret->abi_tag_map.emplace(p->spec, abi);
                     }
                 }
                 else if (auto ipv = p->installed_package.get())
                 {
                     abi = ipv->core->package.abi;
-                    if (!abi.empty()) abi_tag_map.emplace(p->spec, abi);
+                    if (!abi.empty()) ret->abi_tag_map.emplace(p->spec, abi);
                 }
 
                 std::string state;
@@ -143,35 +143,35 @@ namespace vcpkg::Commands::CI
 
                 bool b_will_build = false;
 
-                ret.features.emplace(p->spec,
+                ret->features.emplace(p->spec,
                                      std::vector<std::string> {p->feature_list.begin(), p->feature_list.end()});
 
                 if (Util::Sets::contains(exclusions, p->spec.name()))
                 {
-                    ret.known.emplace(p->spec, BuildResult::EXCLUDED);
+                    ret->known.emplace(p->spec, BuildResult::EXCLUDED);
                     will_fail.emplace(p->spec);
                 }
                 else if (std::any_of(p->computed_dependencies.begin(),
                                      p->computed_dependencies.end(),
                                      [&](const PackageSpec& spec) { return Util::Sets::contains(will_fail, spec); }))
                 {
-                    ret.known.emplace(p->spec, BuildResult::CASCADED_DUE_TO_MISSING_DEPENDENCIES);
+                    ret->known.emplace(p->spec, BuildResult::CASCADED_DUE_TO_MISSING_DEPENDENCIES);
                     will_fail.emplace(p->spec);
                 }
                 else if (fs.exists(archive_path))
                 {
                     state += "pass";
-                    ret.known.emplace(p->spec, BuildResult::SUCCEEDED);
+                    ret->known.emplace(p->spec, BuildResult::SUCCEEDED);
                 }
                 else if (fs.exists(archive_tombstone_path))
                 {
                     state += "fail";
-                    ret.known.emplace(p->spec, BuildResult::BUILD_FAILED);
+                    ret->known.emplace(p->spec, BuildResult::BUILD_FAILED);
                     will_fail.emplace(p->spec);
                 }
                 else
                 {
-                    ret.unknown.push_back({p->spec, {p->feature_list.begin(), p->feature_list.end()}});
+                    ret->unknown.push_back({p->spec, {p->feature_list.begin(), p->feature_list.end()}});
                     b_will_build = true;
                 }
 
@@ -229,9 +229,11 @@ namespace vcpkg::Commands::CI
         };
 
         std::vector<std::map<PackageSpec, BuildResult>> all_known_results;
+        std::map<PackageSpec, std::string> abi_tag_map;
 
         std::vector<std::string> all_ports = Install::get_all_port_names(paths);
         std::vector<TripletAndSummary> results;
+        auto timer = Chrono::ElapsedTimer::create_started();
         for (const Triplet& triplet : triplets)
         {
             Input::check_triplet(triplet, paths);
@@ -240,12 +242,12 @@ namespace vcpkg::Commands::CI
 
             std::vector<PackageSpec> specs = PackageSpec::to_package_specs(all_ports, triplet);
             // Install the default features for every package
-            auto all_fspecs = Util::fmap(specs, [](auto& spec) { return FeatureSpec(spec, ""); });
+            auto all_feature_specs = Util::fmap(specs, [](auto& spec) { return FeatureSpec(spec, ""); });
             auto split_specs =
-                find_unknown_ports_for_ci(paths, exclusions_set, paths_port_file, all_fspecs, purge_tombstones);
-            auto fspecs = FullPackageSpec::to_feature_specs(split_specs.unknown);
+                find_unknown_ports_for_ci(paths, exclusions_set, paths_port_file, all_feature_specs, purge_tombstones);
+            auto feature_specs = FullPackageSpec::to_feature_specs(split_specs->unknown);
 
-            for (auto&& fspec : fspecs)
+            for (auto&& fspec : feature_specs)
                 pgraph.install(fspec);
 
             Dependencies::CreateInstallPlanOptions serialize_options;
@@ -284,7 +286,7 @@ namespace vcpkg::Commands::CI
                                 p->plan_type = InstallPlanType::EXCLUDED;
                             }
 
-                            for (auto&& feature : split_specs.features[p->spec])
+                            for (auto&& feature : split_specs->features[p->spec])
                                 if (p->feature_list.find(feature) == p->feature_list.end())
                                 {
                                     pgraph.install({p->spec, feature});
@@ -305,12 +307,17 @@ namespace vcpkg::Commands::CI
             else
             {
                 auto summary = Install::perform(action_plan, Install::KeepGoing::YES, paths, status_db);
+
                 for (auto&& result : summary.results)
-                    split_specs.known.erase(result.spec);
-                results.push_back({triplet, std::move(summary)});
-                all_known_results.emplace_back(std::move(split_specs.known));
+                    split_specs->known.erase(result.spec);
+
+                all_known_results.emplace_back(std::move(split_specs->known));
+                abi_tag_map.insert(split_specs->abi_tag_map.begin(), split_specs->abi_tag_map.end());
+
+                results.push_back({ triplet, std::move(summary)});
             }
         }
+        auto total_test_time = timer.elapsed();
 
         for (auto&& result : results)
         {
@@ -322,16 +329,26 @@ namespace vcpkg::Commands::CI
         auto it_xunit = options.settings.find(OPTION_XUNIT);
         if (it_xunit != options.settings.end())
         {
-            std::string xunit_doc = "<assemblies><assembly><collection>\n";
+            std::string xunit_doc = Strings::format(R"(<assemblies><assembly time="%lld"><collection>\n)",
+                total_test_time.as<std::chrono::seconds>().count());
 
+            // The contents of 'results' are the ports that were actually built (or attempted to build)
             for (auto&& result : results)
-                xunit_doc += result.summary.xunit_results();
+            {
+                for (auto&& port_result : result.summary.results)
+                {
+                    const std::string& abi = abi_tag_map.at(port_result.spec);
+                    xunit_doc += Install::InstallSummary::xunit_result(port_result.spec, port_result.timing, port_result.build_result.code, abi);
+                }
+            }
+
+            // The contents of 'all_known_results' are ports that have a previously known build state, so they were not actually built.
             for (auto&& known_result : all_known_results)
             {
-                for (auto&& result : known_result)
+                for (auto&& port_result : known_result)
                 {
-                    xunit_doc +=
-                        Install::InstallSummary::xunit_result(result.first, Chrono::ElapsedTime {}, result.second);
+                    const std::string& abi = abi_tag_map.at(port_result.first);
+                    xunit_doc += Install::InstallSummary::xunit_result(port_result.first, Chrono::ElapsedTime {}, port_result.second, abi);
                 }
             }
 
