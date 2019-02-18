@@ -743,7 +743,7 @@ namespace vcpkg::Install
         std::string traits_block;
         if (abi_tag != "") // only adding if there is a known abi tag
         {
-            traits_block = Strings::format(R"(<traits><trait name=abi_tag value="%s"></trait></traits>)", abi_tag);
+            traits_block = Strings::format(R"(<traits><trait name="abi_tag" value="%s"></trait></traits>)", abi_tag);
         }
 
         return Strings::format(R"(<test name="%s" method="%s" time="%lld" result="%s">%s%s</test>)"
